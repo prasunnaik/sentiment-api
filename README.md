@@ -628,3 +628,159 @@ eureka.client.fetch-registry=true
 
 eureka.instance.prefer-ip-address=true
 eureka.instance.ip-address=127.0.0.1
+
+package com.its.issue.client;
+
+import java.util.List;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
+import com.its.issue.model.Project;
+
+@FeignClient(name = "project-service")
+public interface ProjectClient {
+
+    @GetMapping("/api/projects/owner/{ownerId}")
+    List<Project> getProjectsByOwner(
+            @PathVariable("ownerId") Long ownerId);
+}
+package com.its.issue.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+public class CorsConfig implements WebMvcConfigurer {
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+
+        registry.addMapping("/**")
+                .allowedOrigins("http://localhost:4300")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(true);
+    }
+}
+package com.its.issue.exception;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(IssueNotFoundException.class)
+    public ResponseEntity<String> handleIssueNotFound(
+            IssueNotFoundException exception) {
+
+        return new ResponseEntity<>(
+                exception.getMessage(),
+                HttpStatus.NOT_FOUND
+        );
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidationErrors(
+            MethodArgumentNotValidException exception) {
+
+        Map<String, String> errors = new HashMap<>();
+
+        exception.getBindingResult()
+                .getFieldErrors()
+                .forEach(error ->
+                        errors.put(
+                                error.getField(),
+                                error.getDefaultMessage()
+                        )
+                );
+
+        return new ResponseEntity<>(
+                errors,
+                HttpStatus.BAD_REQUEST
+        );
+    }
+}
+package com.its.issue.exception;
+
+public class IssueNotFoundException extends RuntimeException {
+
+    public IssueNotFoundException(String message) {
+        super(message);
+    }
+}
+
+package com.its.issue.model;
+
+public class Project {
+
+    private Long id;
+    private String projectName;
+    private Long productOwnerId;
+
+    public Project() {
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getProjectName() {
+        return projectName;
+    }
+
+    public void setProjectName(String projectName) {
+        this.projectName = projectName;
+    }
+
+    public Long getProductOwnerId() {
+        return productOwnerId;
+    }
+
+    public void setProductOwnerId(Long productOwnerId) {
+        this.productOwnerId = productOwnerId;
+    }
+}
+package com.its.issue.service;
+
+import java.util.List;
+
+import com.its.issue.model.Issue;
+
+public interface IssueService {
+
+    Issue createIssue(Issue issue);
+
+    List<Issue> getAllIssues();
+
+    Issue getIssueById(Long issueId);
+
+    Issue updateIssue(Long issueId, Issue issue);
+
+    Issue updateIssueStatus(Long issueId, String status);
+
+    void deleteIssue(Long issueId);
+
+    List<Issue> getIssuesByProject(Long projectId);
+
+    List<Issue> getIssuesByOwner(Long ownerId);
+
+    List<Issue> getIssuesByAssignee(Long assigneeId);
+
+    Issue updateIssuePriority(Long issueId, String priority);
+
+    Issue updateIssueAssignee(Long issueId, Long assigneeId);
+}
