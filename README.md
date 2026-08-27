@@ -1,21 +1,22 @@
-private APIGatewayProxyResponseEvent response(
-        int status,
-        Object body) {
-
-    try {
-        return new APIGatewayProxyResponseEvent()
-                .withStatusCode(status)
-                .withHeaders(Map.of(
-                        "Content-Type", "application/json",
-                        "Access-Control-Allow-Origin", "*",
-                        "Access-Control-Allow-Headers", "*",
-                        "Access-Control-Allow-Methods",
-                        "GET,POST,PUT,DELETE,OPTIONS"))
-                .withBody(mapper.writeValueAsString(body));
-
-    } catch (Exception e) {
-        return new APIGatewayProxyResponseEvent()
-                .withStatusCode(500)
-                .withBody("{\"message\":\"Response creation failed\"}");
-    }
-}
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-shade-plugin</artifactId>
+    <version>3.6.0</version>
+    <executions>
+        <execution>
+            <phase>package</phase>
+            <goals>
+                <goal>shade</goal>
+            </goals>
+            <configuration>
+                <createDependencyReducedPom>false</createDependencyReducedPom>
+                <shadedArtifactAttached>false</shadedArtifactAttached>
+                <transformers>
+                    <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                        <mainClass>com.its.issue.lambda.IssueLambdaHandler</mainClass>
+                    </transformer>
+                </transformers>
+            </configuration>
+        </execution>
+    </executions>
+</plugin>
