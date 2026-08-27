@@ -1,786 +1,430 @@
-package com.its.issue.controller;
+package com.its.issue.lambda;
 
-import java.util.List;
-import java.util.Map;
+import com.amazonaws.services.lambda.runtime.Context;
+import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
+import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.its.issue.model.Issue;
-import com.its.issue.service.IssueService;
-
-import jakarta.validation.Valid;
-
-@CrossOrigin(origins = "http://localhost:4300")
-@RestController
-@RequestMapping("/api/issues")
-public class IssueController {
-
-    private final IssueService issueService;
-
-    public IssueController(IssueService issueService) {
-        this.issueService = issueService;
-    }
-
-    @PostMapping
-    public ResponseEntity<Issue> createIssue(
-            @Valid @RequestBody Issue issue) {
-
-        Issue savedIssue = issueService.createIssue(issue);
-
-        return new ResponseEntity<>(
-                savedIssue,
-                HttpStatus.CREATED
-        );
-    }
-
-    @GetMapping
-    public ResponseEntity<List<Issue>> getAllIssues() {
-
-        return new ResponseEntity<>(
-                issueService.getAllIssues(),
-                HttpStatus.OK
-        );
-    }
-
-    @GetMapping("/{issueId}")
-    public ResponseEntity<Issue> getIssueById(
-            @PathVariable Long issueId) {
-
-        return new ResponseEntity<>(
-                issueService.getIssueById(issueId),
-                HttpStatus.OK
-        );
-    }
-
-    @PutMapping("/{issueId}")
-    public ResponseEntity<Issue> updateIssue(
-            @PathVariable Long issueId,
-            @Valid @RequestBody Issue issue) {
-
-        return new ResponseEntity<>(
-                issueService.updateIssue(issueId, issue),
-                HttpStatus.OK
-        );
-    }
-
-    @DeleteMapping("/{issueId}")
-    public ResponseEntity<Void> deleteIssue(
-            @PathVariable Long issueId) {
-
-        issueService.deleteIssue(issueId);
-
-        return new ResponseEntity<>(
-                HttpStatus.NO_CONTENT
-        );
-    }
-
-    @GetMapping("/project/{projectId}")
-    public ResponseEntity<List<Issue>> getIssuesByProject(
-            @PathVariable Long projectId) {
-
-        return new ResponseEntity<>(
-                issueService.getIssuesByProject(projectId),
-                HttpStatus.OK
-        );
-    }
-
-    @GetMapping("/owner/{ownerId}")
-    public ResponseEntity<List<Issue>> getIssuesByOwner(
-            @PathVariable Long ownerId) {
-
-        return new ResponseEntity<>(
-                issueService.getIssuesByOwner(ownerId),
-                HttpStatus.OK
-        );
-    }
-
-    @GetMapping("/assignee/{assigneeId}")
-    public ResponseEntity<List<Issue>> getIssuesByAssignee(
-            @PathVariable Long assigneeId) {
-
-        return new ResponseEntity<>(
-                issueService.getIssuesByAssignee(assigneeId),
-                HttpStatus.OK
-        );
-    }
-
-    @PutMapping("/{issueId}/status")
-    public ResponseEntity<Issue> updateIssueStatus(
-            @PathVariable Long issueId,
-            @RequestBody Map<String, String> request) {
-
-        String status = request.get("status");
-
-        Issue updatedIssue =
-                issueService.updateIssueStatus(issueId, status);
-
-        return new ResponseEntity<>(
-                updatedIssue,
-                HttpStatus.OK
-        );
-    }
-
-    @PutMapping("/{issueId}/priority")
-    public ResponseEntity<Issue> updateIssuePriority(
-            @PathVariable Long issueId,
-            @RequestBody Map<String, String> request) {
-
-        String priority = request.get("priority");
-
-        Issue updatedIssue =
-                issueService.updateIssuePriority(issueId, priority);
-
-        return new ResponseEntity<>(
-                updatedIssue,
-                HttpStatus.OK
-        );
-    }
-
-    @PutMapping("/{issueId}/assignee/{assigneeId}")
-    public ResponseEntity<Issue> updateIssueAssignee(
-            @PathVariable Long issueId,
-            @PathVariable Long assigneeId) {
-
-        Issue updatedIssue =
-                issueService.updateIssueAssignee(issueId, assigneeId);
-
-        return new ResponseEntity<>(
-                updatedIssue,
-                HttpStatus.OK
-        );
-    }
-}
-
-package com.its.issue.service;
-
+import java.sql.*;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
-import org.springframework.stereotype.Service;
+public class IssueLambdaHandler
+        implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
-import com.its.issue.client.ProjectClient;
-import com.its.issue.exception.IssueNotFoundException;
-import com.its.issue.model.Issue;
-import com.its.issue.model.Project;
-import com.its.issue.repository.IssueRepository;
+    private final ObjectMapper mapper = new ObjectMapper();
 
-@Service
-public class IssueServiceImpl implements IssueService {
+    private final String DB_URL =
+            "jdbc:mysql://its.cinei2gc4el7.us-east-1.rds.amazonaws.com:3306/issue_db";
 
-    private final IssueRepository issueRepository;
-    private final ProjectClient projectClient;
-
-    public IssueServiceImpl(
-            IssueRepository issueRepository,
-            ProjectClient projectClient) {
-
-        this.issueRepository = issueRepository;
-        this.projectClient = projectClient;
-    }
+    private final String DB_USER = "root";
+    private final String DB_PASSWORD = "password";
 
     @Override
-    public Issue createIssue(Issue issue) {
+    public APIGatewayProxyResponseEvent handleRequest(
+            APIGatewayProxyRequestEvent event,
+            Context context) {
 
-        issue.setCreatedDate(LocalDateTime.now());
-        issue.setLastUpdatedDate(LocalDateTime.now());
+        try {
+            String method = event.getHttpMethod();
+            String path = event.getPath();
 
-        return issueRepository.save(issue);
+            if ("POST".equals(method) && path.equals("/api/issues")) {
+                return createIssue(event);
+            }
+
+            if ("GET".equals(method) && path.equals("/api/issues")) {
+                return getAllIssues();
+            }
+
+            if ("GET".equals(method) && path.matches("/api/issues/\\d+")) {
+                Long id = Long.parseLong(path.substring(path.lastIndexOf("/") + 1));
+                return getIssueById(id);
+            }
+
+            if ("PUT".equals(method) && path.matches("/api/issues/\\d+/status")) {
+                Long id = Long.parseLong(path.split("/")[3]);
+                return updateStatus(id, event);
+            }
+
+            if ("PUT".equals(method) && path.matches("/api/issues/\\d+/priority")) {
+                Long id = Long.parseLong(path.split("/")[3]);
+                return updatePriority(id, event);
+            }
+
+            if ("PUT".equals(method) && path.matches("/api/issues/\\d+/assignee/\\d+")) {
+                String[] parts = path.split("/");
+                Long issueId = Long.parseLong(parts[3]);
+                Long assigneeId = Long.parseLong(parts[5]);
+
+                return updateAssignee(issueId, assigneeId);
+            }
+
+            if ("PUT".equals(method) && path.matches("/api/issues/\\d+")) {
+                Long id = Long.parseLong(path.substring(path.lastIndexOf("/") + 1));
+                return updateIssue(id, event);
+            }
+
+            if ("DELETE".equals(method) && path.matches("/api/issues/\\d+")) {
+                Long id = Long.parseLong(path.substring(path.lastIndexOf("/") + 1));
+                return deleteIssue(id);
+            }
+
+            if ("GET".equals(method) && path.matches("/api/issues/project/\\d+")) {
+                Long projectId = Long.parseLong(path.substring(path.lastIndexOf("/") + 1));
+                return getIssuesByProject(projectId);
+            }
+
+            if ("GET".equals(method) && path.matches("/api/issues/assignee/\\d+")) {
+                Long assigneeId = Long.parseLong(path.substring(path.lastIndexOf("/") + 1));
+                return getIssuesByAssignee(assigneeId);
+            }
+
+            return response(404, Map.of("message", "Endpoint not found"));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return response(500, Map.of("message", e.getMessage()));
+        }
     }
 
-    @Override
-    public List<Issue> getAllIssues() {
-
-        return issueRepository.findAll();
+    private Connection connection() throws SQLException {
+        return DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
     }
 
-    @Override
-    public Issue getIssueById(Long issueId) {
+    private APIGatewayProxyResponseEvent createIssue(
+            APIGatewayProxyRequestEvent event) throws Exception {
 
-        return issueRepository.findById(issueId)
-                .orElseThrow(() ->
-                    new IssueNotFoundException(
-                        "Issue not found with id: " + issueId
-                    )
-                );
-    }
+        Map<String, Object> data =
+                mapper.readValue(event.getBody(), Map.class);
 
-    @Override
-    public Issue updateIssue(Long issueId, Issue issue) {
+        String sql = """
+                INSERT INTO issues
+                (summary, description, priority, assignee_id, status,
+                 created_date, last_updated_date, project_id,
+                 sprint, story_point, tags, type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """;
 
-        Issue existingIssue = issueRepository.findById(issueId)
-                .orElseThrow(() ->
-                    new IssueNotFoundException(
-                        "Issue not found with id: " + issueId
-                    )
-                );
+        LocalDateTime now = LocalDateTime.now();
 
-        existingIssue.setSummary(issue.getSummary());
-        existingIssue.setDescription(issue.getDescription());
-        existingIssue.setPriority(issue.getPriority());
-        existingIssue.setAssigneeId(issue.getAssigneeId());
-        existingIssue.setStatus(issue.getStatus());
-        existingIssue.setProjectId(issue.getProjectId());
-        existingIssue.setSprint(issue.getSprint());
-        existingIssue.setStoryPoint(issue.getStoryPoint());
-        existingIssue.setTags(issue.getTags());
-        existingIssue.setType(issue.getType());
+        try (Connection con = connection();
+             PreparedStatement ps = con.prepareStatement(
+                     sql, Statement.RETURN_GENERATED_KEYS)) {
 
-        existingIssue.setLastUpdatedDate(LocalDateTime.now());
+            ps.setString(1, (String) data.get("summary"));
+            ps.setString(2, (String) data.get("description"));
+            ps.setString(3, (String) data.get("priority"));
+            ps.setLong(4, ((Number) data.get("assigneeId")).longValue());
+            ps.setString(5, (String) data.get("status"));
+            ps.setTimestamp(6, Timestamp.valueOf(now));
+            ps.setTimestamp(7, Timestamp.valueOf(now));
+            ps.setLong(8, ((Number) data.get("projectId")).longValue());
+            ps.setString(9, (String) data.get("sprint"));
 
-        return issueRepository.save(existingIssue);
-    }
+            if (data.get("storyPoint") == null)
+                ps.setNull(10, Types.INTEGER);
+            else
+                ps.setInt(10, ((Number) data.get("storyPoint")).intValue());
 
-    @Override
-    public void deleteIssue(Long issueId) {
+            ps.setString(11, (String) data.get("tags"));
+            ps.setString(12, (String) data.get("type"));
 
-        Issue existingIssue = issueRepository.findById(issueId)
-                .orElseThrow(() ->
-                    new IssueNotFoundException(
-                        "Issue not found with id: " + issueId
-                    )
-                );
+            ps.executeUpdate();
 
-        issueRepository.delete(existingIssue);
-    }
+            ResultSet rs = ps.getGeneratedKeys();
 
-    @Override
-    public List<Issue> getIssuesByProject(Long projectId) {
+            if (rs.next()) {
+                Map<String, Object> result = new HashMap<>(data);
+                result.put("id", rs.getLong(1));
+                result.put("createdDate", now.toString());
+                result.put("lastUpdatedDate", now.toString());
 
-        return issueRepository.findByProjectId(projectId);
-    }
-
-    @Override
-    public List<Issue> getIssuesByOwner(Long ownerId) {
-
-        List<Project> projects =
-                projectClient.getProjectsByOwner(ownerId);
-
-        List<Issue> issues = new ArrayList<>();
-
-        for (Project project : projects) {
-
-            List<Issue> projectIssues =
-                    issueRepository.findByProjectId(project.getId());
-
-            issues.addAll(projectIssues);
+                return response(201, result);
+            }
         }
 
-        return issues;
+        return response(500, Map.of("message", "Issue creation failed"));
     }
 
-    @Override
-    public List<Issue> getIssuesByAssignee(Long assigneeId) {
+    private APIGatewayProxyResponseEvent getAllIssues()
+            throws Exception {
 
-        return issueRepository.findByAssigneeId(assigneeId);
+        String sql = "SELECT * FROM issues";
+
+        List<Map<String, Object>> issues = new ArrayList<>();
+
+        try (Connection con = connection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                issues.add(toMap(rs));
+            }
+        }
+
+        return response(200, issues);
     }
 
-    public Issue updateIssueStatus(Long issueId, String status) {
+    private APIGatewayProxyResponseEvent getIssueById(Long id)
+            throws Exception {
 
-    Issue issue = issueRepository.findById(issueId)
-            .orElseThrow(() ->
-                    new RuntimeException("Issue not found: " + issueId));
+        String sql = "SELECT * FROM issues WHERE id = ?";
 
-    issue.setStatus(status);
+        try (Connection con = connection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
 
-    return issueRepository.save(issue);
-}
+            ps.setLong(1, id);
 
-@Override
-public Issue updateIssuePriority(Long issueId, String priority) {
+            ResultSet rs = ps.executeQuery();
 
-    Issue issue = issueRepository.findById(issueId)
-            .orElseThrow(() ->
-                    new RuntimeException("Issue not found: " + issueId));
+            if (rs.next()) {
+                return response(200, toMap(rs));
+            }
+        }
 
-    issue.setPriority(priority);
-
-    return issueRepository.save(issue);
-}
-
-@Override
-public Issue updateIssueAssignee(Long issueId, Long assigneeId) {
-
-    Issue issue = issueRepository.findById(issueId)
-            .orElseThrow(() ->
-                    new RuntimeException("Issue not found: " + issueId));
-
-    issue.setAssigneeId(assigneeId);
-
-    return issueRepository.save(issue);
-}
-
-}
-package com.its.issue.model;
-
-import java.time.LocalDateTime;
-
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-
-@Entity
-@Table(name = "issues")
-public class Issue {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @NotBlank(message = "Summary is required")
-    private String summary;
-
-    private String description;
-
-    @NotBlank(message = "Priority is required")
-    private String priority;
-
-    @NotNull(message = "Assignee ID is required")
-    private Long assigneeId;
-
-    @NotBlank(message = "Status is required")
-    private String status;
-
-    private LocalDateTime createdDate;
-
-    private LocalDateTime lastUpdatedDate;
-
-    @NotNull(message = "Project ID is required")
-    private Long projectId;
-
-    private String sprint;
-
-    private Integer storyPoint;
-
-    private String tags;
-
-    @NotBlank(message = "Type is required")
-    private String type;
-
-    public Issue() {
+        return response(404,
+                Map.of("message", "Issue not found with id: " + id));
     }
 
-    public Long getId() {
-        return id;
+    private APIGatewayProxyResponseEvent updateIssue(
+            Long id,
+            APIGatewayProxyRequestEvent event) throws Exception {
+
+        Map<String, Object> data =
+                mapper.readValue(event.getBody(), Map.class);
+
+        String sql = """
+                UPDATE issues SET
+                summary=?,
+                description=?,
+                priority=?,
+                assignee_id=?,
+                status=?,
+                project_id=?,
+                sprint=?,
+                story_point=?,
+                tags=?,
+                type=?,
+                last_updated_date=?
+                WHERE id=?
+                """;
+
+        try (Connection con = connection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, (String) data.get("summary"));
+            ps.setString(2, (String) data.get("description"));
+            ps.setString(3, (String) data.get("priority"));
+            ps.setLong(4, ((Number) data.get("assigneeId")).longValue());
+            ps.setString(5, (String) data.get("status"));
+            ps.setLong(6, ((Number) data.get("projectId")).longValue());
+            ps.setString(7, (String) data.get("sprint"));
+
+            if (data.get("storyPoint") == null)
+                ps.setNull(8, Types.INTEGER);
+            else
+                ps.setInt(8, ((Number) data.get("storyPoint")).intValue());
+
+            ps.setString(9, (String) data.get("tags"));
+            ps.setString(10, (String) data.get("type"));
+            ps.setTimestamp(11,
+                    Timestamp.valueOf(LocalDateTime.now()));
+            ps.setLong(12, id);
+
+            int rows = ps.executeUpdate();
+
+            if (rows == 0) {
+                return response(404,
+                        Map.of("message", "Issue not found"));
+            }
+        }
+
+        return getIssueById(id);
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    private APIGatewayProxyResponseEvent updateStatus(
+            Long id,
+            APIGatewayProxyRequestEvent event) throws Exception {
+
+        Map<String, Object> data =
+                mapper.readValue(event.getBody(), Map.class);
+
+        return simpleUpdate(
+                "status",
+                data.get("status"),
+                id);
     }
 
-    public String getSummary() {
-        return summary;
+    private APIGatewayProxyResponseEvent updatePriority(
+            Long id,
+            APIGatewayProxyRequestEvent event) throws Exception {
+
+        Map<String, Object> data =
+                mapper.readValue(event.getBody(), Map.class);
+
+        return simpleUpdate(
+                "priority",
+                data.get("priority"),
+                id);
     }
 
-    public void setSummary(String summary) {
-        this.summary = summary;
+    private APIGatewayProxyResponseEvent updateAssignee(
+            Long issueId,
+            Long assigneeId) throws Exception {
+
+        return simpleUpdate(
+                "assignee_id",
+                assigneeId,
+                issueId);
     }
 
-    public String getDescription() {
-        return description;
+    private APIGatewayProxyResponseEvent simpleUpdate(
+            String column,
+            Object value,
+            Long id) throws Exception {
+
+        String sql =
+                "UPDATE issues SET " + column +
+                "=?, last_updated_date=? WHERE id=?";
+
+        try (Connection con = connection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            if (value instanceof Number)
+                ps.setLong(1, ((Number) value).longValue());
+            else
+                ps.setString(1, String.valueOf(value));
+
+            ps.setTimestamp(2,
+                    Timestamp.valueOf(LocalDateTime.now()));
+
+            ps.setLong(3, id);
+
+            int rows = ps.executeUpdate();
+
+            if (rows == 0) {
+                return response(404,
+                        Map.of("message", "Issue not found"));
+            }
+        }
+
+        return getIssueById(id);
     }
 
-    public void setDescription(String description) {
-        this.description = description;
+    private APIGatewayProxyResponseEvent deleteIssue(Long id)
+            throws Exception {
+
+        String sql = "DELETE FROM issues WHERE id=?";
+
+        try (Connection con = connection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setLong(1, id);
+
+            int rows = ps.executeUpdate();
+
+            if (rows == 0) {
+                return response(404,
+                        Map.of("message", "Issue not found"));
+            }
+        }
+
+        return new APIGatewayProxyResponseEvent()
+                .withStatusCode(204);
     }
 
-    public String getPriority() {
-        return priority;
+    private APIGatewayProxyResponseEvent getIssuesByProject(
+            Long projectId) throws Exception {
+
+        return getByColumn("project_id", projectId);
     }
 
-    public void setPriority(String priority) {
-        this.priority = priority;
+    private APIGatewayProxyResponseEvent getIssuesByAssignee(
+            Long assigneeId) throws Exception {
+
+        return getByColumn("assignee_id", assigneeId);
     }
 
-    public Long getAssigneeId() {
-        return assigneeId;
+    private APIGatewayProxyResponseEvent getByColumn(
+            String column,
+            Long value) throws Exception {
+
+        String sql =
+                "SELECT * FROM issues WHERE " + column + "=?";
+
+        List<Map<String, Object>> issues = new ArrayList<>();
+
+        try (Connection con = connection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setLong(1, value);
+
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                issues.add(toMap(rs));
+            }
+        }
+
+        return response(200, issues);
     }
 
-    public void setAssigneeId(Long assigneeId) {
-        this.assigneeId = assigneeId;
+    private Map<String, Object> toMap(ResultSet rs)
+            throws SQLException {
+
+        Map<String, Object> map = new LinkedHashMap<>();
+
+        map.put("id", rs.getLong("id"));
+        map.put("summary", rs.getString("summary"));
+        map.put("description", rs.getString("description"));
+        map.put("priority", rs.getString("priority"));
+        map.put("assigneeId", rs.getLong("assignee_id"));
+        map.put("status", rs.getString("status"));
+        map.put("createdDate",
+                rs.getTimestamp("created_date"));
+        map.put("lastUpdatedDate",
+                rs.getTimestamp("last_updated_date"));
+        map.put("projectId", rs.getLong("project_id"));
+        map.put("sprint", rs.getString("sprint"));
+        map.put("storyPoint", rs.getObject("story_point"));
+        map.put("tags", rs.getString("tags"));
+        map.put("type", rs.getString("type"));
+
+        return map;
     }
 
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public LocalDateTime getCreatedDate() {
-        return createdDate;
-    }
-
-    public void setCreatedDate(LocalDateTime createdDate) {
-        this.createdDate = createdDate;
-    }
-
-    public LocalDateTime getLastUpdatedDate() {
-        return lastUpdatedDate;
-    }
-
-    public void setLastUpdatedDate(LocalDateTime lastUpdatedDate) {
-        this.lastUpdatedDate = lastUpdatedDate;
-    }
-
-    public Long getProjectId() {
-        return projectId;
-    }
-
-    public void setProjectId(Long projectId) {
-        this.projectId = projectId;
-    }
-
-    public String getSprint() {
-        return sprint;
-    }
-
-    public void setSprint(String sprint) {
-        this.sprint = sprint;
-    }
-
-    public Integer getStoryPoint() {
-        return storyPoint;
-    }
-
-    public void setStoryPoint(Integer storyPoint) {
-        this.storyPoint = storyPoint;
-    }
-
-    public String getTags() {
-        return tags;
-    }
-
-    public void setTags(String tags) {
-        this.tags = tags;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
-}
-
-package com.its.issue.repository;
-
-import java.util.List;
-
-import org.springframework.data.jpa.repository.JpaRepository;
-
-import com.its.issue.model.Issue;
-
-public interface IssueRepository extends JpaRepository<Issue, Long> {
-
-    List<Issue> findByProjectId(Long projectId);
-
-    List<Issue> findByAssigneeId(Long assigneeId);
-}
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-
-    <modelVersion>4.0.0</modelVersion>
-
-    <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.0</version>
-        <relativePath/>
-    </parent>
-
-    <groupId>com.its</groupId>
-    <artifactId>issue-service</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-
-    <name>issue-service</name>
-    <description>Issue MicroServices for ITS</description>
-
-    <properties>
-        <java.version>17</java.version>
-        <spring-cloud.version>2025.1.2</spring-cloud.version>
-    </properties>
-
-    <!-- Spring Cloud dependency management -->
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.springframework.cloud</groupId>
-                <artifactId>spring-cloud-dependencies</artifactId>
-                <version>${spring-cloud.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
-
-    <dependencies>
-
-        <!-- OpenFeign -->
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-openfeign</artifactId>
-        </dependency>
-
-        <!-- Eureka Client -->
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
-        </dependency>
-
-        <!-- Spring Data JPA -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
-
-        <!-- Validation -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-
-        <!-- Spring Web -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webmvc</artifactId>
-        </dependency>
-
-        <!-- MySQL -->
-        <dependency>
-            <groupId>com.mysql</groupId>
-            <artifactId>mysql-connector-j</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <!-- Swagger -->
-        <dependency>
-            <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.8.9</version>
-        </dependency>
-
-        <!-- Tests -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webmvc-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-    </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-        </plugins>
-        <finalName>issue</finalName>
-    </build>
-
-</project>
-spring.application.name=issue-service
-
-server.port=8083
-
-spring.datasource.url=jdbc:mysql://its.cinei2gc4el7.us-east-1.rds.amazonaws.com:3306/issue_db
-spring.datasource.username=root
-spring.datasource.password=password
-
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
-
-eureka.client.service-url.defaultZone=http://localhost:8761/eureka
-eureka.client.register-with-eureka=true
-eureka.client.fetch-registry=true
-
-eureka.instance.prefer-ip-address=true
-eureka.instance.ip-address=127.0.0.1
-
-package com.its.issue.client;
-
-import java.util.List;
-
-import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-
-import com.its.issue.model.Project;
-
-@FeignClient(name = "project-service")
-public interface ProjectClient {
-
-    @GetMapping("/api/projects/owner/{ownerId}")
-    List<Project> getProjectsByOwner(
-            @PathVariable("ownerId") Long ownerId);
-}
-package com.its.issue.config;
-
-import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-
-@Configuration
-public class CorsConfig implements WebMvcConfigurer {
-
-    @Override
-    public void addCorsMappings(CorsRegistry registry) {
-
-        registry.addMapping("/**")
-                .allowedOrigins("http://localhost:4300")
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("*")
-                .allowCredentials(true);
-    }
-}
-package com.its.issue.exception;
-
-import java.util.HashMap;
-import java.util.Map;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-@RestControllerAdvice
-public class GlobalExceptionHandler {
-
-    @ExceptionHandler(IssueNotFoundException.class)
-    public ResponseEntity<String> handleIssueNotFound(
-            IssueNotFoundException exception) {
-
-        return new ResponseEntity<>(
-                exception.getMessage(),
-                HttpStatus.NOT_FOUND
-        );
-    }
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, String>> handleValidationErrors(
-            MethodArgumentNotValidException exception) {
-
-        Map<String, String> errors = new HashMap<>();
-
-        exception.getBindingResult()
-                .getFieldErrors()
-                .forEach(error ->
-                        errors.put(
-                                error.getField(),
-                                error.getDefaultMessage()
-                        )
-                );
-
-        return new ResponseEntity<>(
-                errors,
-                HttpStatus.BAD_REQUEST
-        );
-    }
-}
-package com.its.issue.exception;
-
-public class IssueNotFoundException extends RuntimeException {
-
-    public IssueNotFoundException(String message) {
-        super(message);
+    private APIGatewayProxyResponseEvent response(
+            int status,
+            Object body) throws Exception {
+
+        return new APIGatewayProxyResponseEvent()
+                .withStatusCode(status)
+                .withHeaders(Map.of(
+                        "Content-Type", "application/json",
+                        "Access-Control-Allow-Origin", "*",
+                        "Access-Control-Allow-Headers", "*",
+                        "Access-Control-Allow-Methods",
+                        "GET,POST,PUT,DELETE,OPTIONS"))
+                .withBody(mapper.writeValueAsString(body));
     }
 }
 
-package com.its.issue.model;
 
-public class Project {
+<dependency>
+    <groupId>com.amazonaws</groupId>
+    <artifactId>aws-lambda-java-core</artifactId>
+    <version>1.2.3</version>
+</dependency>
 
-    private Long id;
-    private String projectName;
-    private Long productOwnerId;
+<dependency>
+    <groupId>com.amazonaws</groupId>
+    <artifactId>aws-lambda-java-events</artifactId>
+    <version>3.16.1</version>
+</dependency>
 
-    public Project() {
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getProjectName() {
-        return projectName;
-    }
-
-    public void setProjectName(String projectName) {
-        this.projectName = projectName;
-    }
-
-    public Long getProductOwnerId() {
-        return productOwnerId;
-    }
-
-    public void setProductOwnerId(Long productOwnerId) {
-        this.productOwnerId = productOwnerId;
-    }
-}
-package com.its.issue.service;
-
-import java.util.List;
-
-import com.its.issue.model.Issue;
-
-public interface IssueService {
-
-    Issue createIssue(Issue issue);
-
-    List<Issue> getAllIssues();
-
-    Issue getIssueById(Long issueId);
-
-    Issue updateIssue(Long issueId, Issue issue);
-
-    Issue updateIssueStatus(Long issueId, String status);
-
-    void deleteIssue(Long issueId);
-
-    List<Issue> getIssuesByProject(Long projectId);
-
-    List<Issue> getIssuesByOwner(Long ownerId);
-
-    List<Issue> getIssuesByAssignee(Long assigneeId);
-
-    Issue updateIssuePriority(Long issueId, String priority);
-
-    Issue updateIssueAssignee(Long issueId, Long assigneeId);
-}
+<dependency>
+    <groupId>com.fasterxml.jackson.core</groupId>
+    <artifactId>jackson-databind</artifactId>
+</dependency>
