@@ -1,15 +1,5 @@
-Subject: Leave Request for University Convocation – October 5–7, 2026
+I wanted to clarify whom I should contact for approval of my PTO from October 5–7 for my university convocation.
 
-Dear [Name],
+I have not been assigned a Resource Manager or Project Manager. I can only see my People Advisor and Deployment Professional assigned. Should I contact my Deployment Professional for the leave approval, or is there someone else I should reach out to?
 
-I hope you are doing well.
-
-I would like to request leave from October 5 to October 7, 2026, as I will be attending my university convocation.
-
-I checked with my People Advisor, Ashish Kulkarni, regarding the leave approval process. He advised me to contact my Resource Manager (RM) for the approval. However, I have not yet been assigned a Resource Manager, and currently, I can only see you listed as my Deployment Professional.
-
-Therefore, I wanted to check with you regarding the appropriate process for applying for and getting approval for my leave. Please let me know if I should submit the request through you or if you could connect me with the appropriate Resource Manager.
-
-I would appreciate your guidance, as I need to make the necessary arrangements for my convocation.
-
-Thank you for your help.
+Thanks for your guidance.
