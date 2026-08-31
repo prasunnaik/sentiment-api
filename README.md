@@ -1,22 +1,29 @@
-Answers — 2–3 sentences each
+1. What is the difference between NLP, NLU, and NLG?
+NLP is the overall field that helps computers work with human language. NLU focuses on understanding the meaning, while NLG focuses on generating human-like text.
 
-1. What makes learning supervised?
-    Supervised learning uses labeled data, where the correct output/target is already known. The model learns the relationship between inputs and outputs to make predictions on new data.
-2. Main difference between classification and regression?
-    Classification predicts a category or class, such as spam/not spam. Regression predicts a continuous numerical value, such as salary or house price.
-3. Is predicting house prices classification or regression?
-    It is regression because the output is a continuous numerical value, such as ₹50 lakh or ₹80 lakh. The model learns to predict the price based on features like area, location, and number of rooms.
-4. Is customer segmentation usually supervised or unsupervised?
-    Customer segmentation is usually unsupervised learning because there are typically no predefined labels for the customer groups. Algorithms such as clustering identify groups based on similarities in customer behavior.
-5. Why are discovered clusters not automatically meaningful business segments?
-    Clustering only finds statistical patterns or similarities in the data. Business teams must interpret and validate those clusters to determine whether they represent useful customer segments.
-6. Can anomaly detection be supervised?
-    Yes. Anomaly detection can be supervised when historical data contains labels identifying normal and abnormal cases. Without labels, it is commonly performed using unsupervised methods.
-7. Why does data quality matter?
-    Machine-learning models learn from the data they receive, so poor-quality data can produce inaccurate or biased predictions. Missing, incorrect, inconsistent, or biased data can significantly reduce model performance.
-8. Difference between association and causation?
-    Association means two things are related or occur together, but it does not prove that one causes the other. Causation means a change in one factor directly produces a change in another.
-9. When might semi-supervised learning be useful?
-    It is useful when you have a small amount of labeled data and a large amount of unlabeled data. The model can use both to improve learning while reducing the cost and effort of labeling data.
-10. Why should a high-impact prediction not automatically become a final decision?
-    A high-impact prediction can contain errors, bias, or limitations in the training data. Human review and additional context are important before making decisions that significantly affect people.
+2. Why can the word “bank” require different representations in different sentences?
+The word “bank” can have different meanings depending on the context. For example, “river bank” and “bank account” refer to completely different things, so NLP models need to represent them differently.
+
+3. What does tokenization do?
+Tokenization breaks text into smaller pieces called tokens, such as words, subwords, or characters. These tokens can then be processed by an NLP model.
+
+4. Why might removing stop words damage sentiment analysis?
+Some stop words can completely change the sentiment of a sentence. For example, removing “not” from “The movie is not good” would change its meaning.
+
+5. What information does Bag of Words discard?
+Bag of Words mainly keeps track of which words appear and how often. It ignores word order, grammar, and much of the context of the sentence.
+
+6. Why does TF-IDF reduce the weight of terms found in many documents?
+Words that appear in almost every document usually don’t tell us much about what makes a document unique. TF-IDF therefore gives more importance to distinctive words and less to very common ones.
+
+7. How do static and contextual embeddings differ?
+Static embeddings give a word the same representation every time, regardless of where it is used. Contextual embeddings change the representation based on the surrounding words and meaning.
+
+8. What role does positional information play in a Transformer?
+Transformers process words together rather than naturally following their order. Positional information helps the model understand where each token appears in the sentence and therefore understand word order.
+
+9. Which Transformer variant is commonly used for embeddings and classification?
+Encoder-based Transformers, such as BERT, are commonly used for embeddings and classification tasks. They are good at understanding the context and meaning of input text.
+
+10. Why should NLP evaluation use more than one average metric?
+A single average metric may hide areas where the model performs poorly. Using multiple metrics, such as precision, recall, and F1-score, gives a more complete picture of the model’s performance.
