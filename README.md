@@ -1,1 +1,3 @@
-I believe this candidate is a strong fit because they have a solid foundation in data analytics, SQL, Excel, and Power BI, along with hands-on experience in data cleaning, validation, visualization, and dashboard development. Their experience working with large datasets, identifying trends, and performing analytical problem-solving aligns well with the reporting and analytics requirements of the position. Additionally, their strong technical background and 8.51 CGPA in Computer Science Engineering further support their suitability for the role.
+Hi Sir/Ma’am, I wanted to request leave from 5th to 7th October as I have my university convocation during these dates.
+
+I haven’t been assigned a coach/onboarding advisor yet, and as mentioned in the earlier mail, you are listed as my Team/Project Manager. Could you please guide me on the leave approval process or assist with the approval?
