@@ -1,82 +1,131 @@
-package com.insurewise.auth.dto;
+package com.insurewise.auth.service;
 
+import com.insurewise.auth.dto.CreateStaffUserRequest;
+import com.insurewise.auth.dto.StaffUserResponse;
+import com.insurewise.auth.dto.UpdateStaffUserRequest;
 import com.insurewise.auth.entity.StaffUser;
+import com.insurewise.auth.repository.StaffUserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
-public record StaffUserResponse(
-        UUID id,
-        String fullName,
-        String email,
-        String address,
-        String profilePictureS3Key,
-        LocalDateTime createdAt
-) {
+@Service
+@Transactional
+public class StaffUserManagementService {
 
-    public static StaffUserResponse from(StaffUser staffUser) {
-        return new StaffUserResponse(
-                staffUser.getId(),
-                staffUser.getFullName(),
-                staffUser.getEmail(),
-                staffUser.getAddress(),
-                staffUser.getProfilePictureS3Key(),
-                staffUser.getCreatedAt()
-        );
+    private final StaffUserRepository staffUserRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    public StaffUserManagementService(
+            StaffUserRepository staffUserRepository,
+            PasswordEncoder passwordEncoder
+    ) {
+        this.staffUserRepository = staffUserRepository;
+        this.passwordEncoder = passwordEncoder;
     }
-}
 
+    @Transactional(readOnly = true)
+    public List<StaffUserResponse> getAllStaffUsers() {
 
-package com.insurewise.auth.dto;
+        return staffUserRepository.findAll()
+                .stream()
+                .map(StaffUserResponse::from)
+                .toList();
+    }
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+    @Transactional(readOnly = true)
+    public StaffUserResponse getStaffUser(UUID id) {
 
-public record CreateStaffUserRequest(
+        StaffUser staffUser = findStaffUser(id);
 
-        @NotBlank(message = "Name is required")
-        @Size(max = 120, message = "Name must not exceed 120 characters")
-        String fullName,
+        return StaffUserResponse.from(staffUser);
+    }
 
-        @NotBlank(message = "Email is required")
-        @Email(message = "Invalid email format")
-        @Size(max = 160, message = "Email must not exceed 160 characters")
-        String email,
+    public StaffUserResponse createStaffUser(
+            CreateStaffUserRequest request
+    ) {
 
-        @NotBlank(message = "Address is required")
-        @Size(max = 240, message = "Address must not exceed 240 characters")
-        String address,
+        String email = request.email().trim();
 
-        @NotBlank(message = "Password is required")
-        @Size(
-                min = 8,
-                max = 72,
-                message = "Password must be between 8 and 72 characters"
-        )
-        String password
-) {
-}
+        if (staffUserRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException(
+                    "A staff user with this email already exists"
+            );
+        }
 
-package com.insurewise.auth.dto;
+        StaffUser staffUser = new StaffUser();
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+        staffUser.setId(UUID.randomUUID());
+        staffUser.setFullName(request.fullName().trim());
+        staffUser.setEmail(email);
+        staffUser.setAddress(request.address().trim());
 
-public record UpdateStaffUserRequest(
+        // NEVER store raw password
+        staffUser.setPasswordHash(
+                passwordEncoder.encode(request.password())
+        );
 
-        @NotBlank(message = "Name is required")
-        @Size(max = 120, message = "Name must not exceed 120 characters")
-        String fullName,
+        StaffUser saved =
+                staffUserRepository.save(staffUser);
 
-        @NotBlank(message = "Email is required")
-        @Email(message = "Invalid email format")
-        @Size(max = 160, message = "Email must not exceed 160 characters")
-        String email,
+        return StaffUserResponse.from(saved);
+    }
 
-        @NotBlank(message = "Address is required")
-        @Size(max = 240, message = "Address must not exceed 240 characters")
-        String address
-) {
+    public StaffUserResponse updateStaffUser(
+            UUID id,
+            UpdateStaffUserRequest request
+    ) {
+
+        StaffUser staffUser = findStaffUser(id);
+
+        String email = request.email().trim();
+
+        if (staffUserRepository.existsByEmailAndIdNot(
+                email,
+                id
+        )) {
+            throw new IllegalArgumentException(
+                    "A staff user with this email already exists"
+            );
+        }
+
+        staffUser.setFullName(
+                request.fullName().trim()
+        );
+
+        staffUser.setEmail(email);
+
+        staffUser.setAddress(
+                request.address().trim()
+        );
+
+        /*
+         * Password intentionally NOT changed.
+         */
+
+        StaffUser saved =
+                staffUserRepository.save(staffUser);
+
+        return StaffUserResponse.from(saved);
+    }
+
+    public void deleteStaffUser(UUID id) {
+
+        StaffUser staffUser = findStaffUser(id);
+
+        staffUserRepository.delete(staffUser);
+    }
+
+    private StaffUser findStaffUser(UUID id) {
+
+        return staffUserRepository.findById(id)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Staff user not found"
+                        )
+                );
+    }
 }
