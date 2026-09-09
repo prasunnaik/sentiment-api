@@ -1,165 +1,310 @@
-package com.insurewise.policy.controller;
+package com.insurewise.auth.repository;
 
-import com.insurewise.policy.dto.CategoryRequest;
-import com.insurewise.policy.dto.CategoryResponse;
-import com.insurewise.policy.service.CategoryService;
-import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
+import com.insurewise.auth.entity.StaffUser;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+import java.util.UUID;
+
+public interface StaffUserRepository extends JpaRepository<StaffUser, UUID> {
+
+    Optional<StaffUser> findByEmail(String email);
+
+    boolean existsByEmail(String email);
+
+    boolean existsByEmailAndIdNot(String email, UUID id);
+}
+
+package com.insurewise.auth.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Entity
+@Table(name = "staff_users")
+@Getter
+@Setter
+@NoArgsConstructor
+public class StaffUser {
+
+    @Id
+    @Column(nullable = false)
+    private UUID id;
+
+    @Column(name = "full_name", nullable = false, length = 120)
+    private String fullName;
+
+    @Column(nullable = false, unique = true, length = 160)
+    private String email;
+
+    @Column(nullable = false, length = 240)
+    private String address;
+
+    @Column(name = "password_hash", nullable = false, length = 100)
+    private String passwordHash;
+
+    @Column(name = "profile_picture_s3_key", length = 600)
+    private String profilePictureS3Key;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+}
+
+package com.insurewise.auth.service;
+
+import com.insurewise.auth.dto.CreateStaffUserRequest;
+import com.insurewise.auth.dto.StaffUserResponse;
+import com.insurewise.auth.dto.UpdateStaffUserRequest;
+import com.insurewise.auth.entity.StaffUser;
+import com.insurewise.auth.repository.StaffUserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
 
-@RestController
-@RequestMapping("/api/categories")
-public class CategoryController {
+@Service
+@Transactional
+public class StaffUserManagementService {
 
-    private final CategoryService categoryService;
+    private final StaffUserRepository staffUserRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public CategoryController(CategoryService categoryService) {
-        this.categoryService = categoryService;
-    }
-
-    @GetMapping
-    public List<CategoryResponse> getAllCategories() {
-        return categoryService.getAll();
-    }
-
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public CategoryResponse createCategory(
-            @Valid @RequestBody CategoryRequest request
+    public StaffUserManagementService(
+            StaffUserRepository staffUserRepository,
+            PasswordEncoder passwordEncoder
     ) {
-        return categoryService.create(request);
+        this.staffUserRepository = staffUserRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
-    @PutMapping("/{id}")
-    public CategoryResponse updateCategory(
-            @PathVariable UUID id,
-            @Valid @RequestBody CategoryRequest request
+    @Transactional(readOnly = true)
+    public List<StaffUserResponse> getAllStaffUsers() {
+
+        return staffUserRepository.findAll()
+                .stream()
+                .map(StaffUserResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public StaffUserResponse getStaffUser(UUID id) {
+
+        StaffUser staffUser = findStaffUser(id);
+
+        return StaffUserResponse.from(staffUser);
+    }
+
+    public StaffUserResponse createStaffUser(
+            CreateStaffUserRequest request
     ) {
-        return categoryService.update(id, request);
+
+        String email = request.email().trim();
+
+        if (staffUserRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException(
+                    "A staff user with this email already exists"
+            );
+        }
+
+        StaffUser staffUser = new StaffUser();
+
+        staffUser.setId(UUID.randomUUID());
+        staffUser.setFullName(request.fullName().trim());
+        staffUser.setEmail(email);
+        staffUser.setAddress(request.address().trim());
+
+        // NEVER store raw password
+        staffUser.setPasswordHash(
+                passwordEncoder.encode(request.password())
+        );
+
+        StaffUser saved =
+                staffUserRepository.save(staffUser);
+
+        return StaffUserResponse.from(saved);
+    }
+
+    public StaffUserResponse updateStaffUser(
+            UUID id,
+            UpdateStaffUserRequest request
+    ) {
+
+        StaffUser staffUser = findStaffUser(id);
+
+        String email = request.email().trim();
+
+        if (staffUserRepository.existsByEmailAndIdNot(
+                email,
+                id
+        )) {
+            throw new IllegalArgumentException(
+                    "A staff user with this email already exists"
+            );
+        }
+
+        staffUser.setFullName(
+                request.fullName().trim()
+        );
+
+        staffUser.setEmail(email);
+
+        staffUser.setAddress(
+                request.address().trim()
+        );
+
+        /*
+         * Password intentionally NOT changed.
+         */
+
+        StaffUser saved =
+                staffUserRepository.save(staffUser);
+
+        return StaffUserResponse.from(saved);
+    }
+
+    public void deleteStaffUser(UUID id) {
+
+        StaffUser staffUser = findStaffUser(id);
+
+        staffUserRepository.delete(staffUser);
+    }
+
+    private StaffUser findStaffUser(UUID id) {
+
+        return staffUserRepository.findById(id)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Staff user not found"
+                        )
+                );
     }
 }
 
+package com.insurewise.auth.controller;
 
-
-package com.insurewise.policy.controller;
-
-import com.insurewise.policy.dto.PolicyRequest;
-import com.insurewise.policy.dto.PolicyResponse;
-import com.insurewise.policy.service.PolicyService;
+import com.insurewise.auth.dto.CreateStaffUserRequest;
+import com.insurewise.auth.dto.StaffUserResponse;
+import com.insurewise.auth.dto.UpdateStaffUserRequest;
+import com.insurewise.auth.service.StaffUserManagementService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/policies")
-public class PolicyController {
+@RequestMapping("/api/auth/staff-users")
+public class StaffUserManagementController {
 
-    private final PolicyService policyService;
+    private final StaffUserManagementService service;
 
-    public PolicyController(PolicyService policyService) {
-        this.policyService = policyService;
+    public StaffUserManagementController(
+            StaffUserManagementService service
+    ) {
+        this.service = service;
     }
 
-    /*
-     * Staff dashboard can use this endpoint.
-     */
     @GetMapping
-    public List<PolicyResponse> getAllPolicies() {
-        return policyService.getAllPolicies();
-    }
+    public List<StaffUserResponse> getAll(
+            Authentication authentication
+    ) {
 
-    /*
-     * Customer-facing endpoint.
-     *
-     * IMPORTANT:
-     * Only ACTIVE policies should be returned here.
-     */
-    @GetMapping("/active")
-    public List<PolicyResponse> getActivePolicies() {
-        return policyService.getActivePolicies();
+        requireStaff(authentication);
+
+        return service.getAllStaffUsers();
     }
 
     @GetMapping("/{id}")
-    public PolicyResponse getPolicy(
-            @PathVariable UUID id
+    public StaffUserResponse getById(
+            @PathVariable UUID id,
+            Authentication authentication
     ) {
-        return policyService.getPolicy(id);
+
+        requireStaff(authentication);
+
+        return service.getStaffUser(id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public PolicyResponse createPolicy(
-            @Valid @RequestBody PolicyRequest request
+    public StaffUserResponse create(
+            @Valid @RequestBody CreateStaffUserRequest request,
+            Authentication authentication
     ) {
-        return policyService.create(request);
+
+        requireStaff(authentication);
+
+        return service.createStaffUser(request);
     }
 
     @PutMapping("/{id}")
-    public PolicyResponse updatePolicy(
+    public StaffUserResponse update(
             @PathVariable UUID id,
-            @Valid @RequestBody PolicyRequest request
+            @Valid @RequestBody UpdateStaffUserRequest request,
+            Authentication authentication
     ) {
-        return policyService.update(id, request);
+
+        requireStaff(authentication);
+
+        return service.updateStaffUser(id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deletePolicy(
-            @PathVariable UUID id
+    public void delete(
+            @PathVariable UUID id,
+            Authentication authentication
     ) {
-        policyService.delete(id);
-    }
-}
 
+        requireStaff(authentication);
 
-
-
-package com.insurewise.policy.repository;
-
-import com.insurewise.policy.entity.PolicyApplication;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-import java.util.List;
-import java.util.UUID;
-
-public interface PolicyApplicationRepository
-        extends JpaRepository<PolicyApplication, UUID> {
-
-    List<PolicyApplication> findByStatusOrderByCreatedAtAsc(
-            String status
-    );
-
-    boolean existsByPolicyId(UUID policyId);
-
-    List<PolicyApplication> findByCustomerIdOrderByCreatedAtDesc(
-            UUID customerId
-    );
-}
-
-
-
-public void delete(UUID id) {
-
-    findPolicy(id);
-
-    boolean hasApplications =
-            applicationRepository.existsByPolicyId(id);
-
-    if (hasApplications) {
-        throw new IllegalStateException(
-                "Policy cannot be deleted because a customer "
-                        + "has a policy application against it"
-        );
+        service.deleteStaffUser(id);
     }
 
-    policyRepository.deleteById(id);
+    private void requireStaff(
+            Authentication authentication
+    ) {
+
+        if (authentication == null
+                || !authentication.isAuthenticated()) {
+
+            throw new SecurityException(
+                    "Authentication required"
+            );
+        }
+
+        /*
+         * Your application has STAFF and CUSTOMER.
+         * There is NO ADMIN.
+         */
+
+        boolean staff = authentication.getAuthorities()
+                .stream()
+                .anyMatch(authority -> {
+
+                    String value =
+                            authority.getAuthority();
+
+                    return value.equals("STAFF")
+                            || value.equals("ROLE_STAFF");
+                });
+
+        if (!staff) {
+            throw new SecurityException(
+                    "Only staff users can perform this operation"
+            );
+        }
+    }
 }
-
-
-
