@@ -1,143 +1,131 @@
-package com.insurewise.policy.dto;
+package com.insurewise.auth.controller;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import com.insurewise.auth.dto.CreateStaffUserRequest;
+import com.insurewise.auth.dto.StaffUserResponse;
+import com.insurewise.auth.dto.UpdateStaffUserRequest;
+import com.insurewise.auth.service.StaffUserManagementService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
 
-public record CategoryRequest(
-
-        @NotBlank(message = "Category name is required")
-        @Size(max = 80, message = "Category name cannot exceed 80 characters")
-        String name,
-
-        @NotBlank(message = "Category description is required")
-        @Size(max = 500, message = "Category description cannot exceed 500 characters")
-        String description,
-
-        @NotBlank(message = "Category status is required")
-        String status
-) {
-}
-
-
-
-package com.insurewise.policy.dto;
-
-import com.insurewise.policy.entity.Category;
-
-import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
-public record CategoryResponse(
-        UUID id,
-        String name,
-        String description,
-        String status,
-        LocalDateTime createdAt
-) {
+@RestController
+@RequestMapping("/api/auth/staff-users")
+public class StaffUserManagementController {
 
-    public static CategoryResponse from(Category category) {
+    private final StaffUserManagementService service;
 
-        return new CategoryResponse(
-                category.getId(),
-                category.getName(),
-                category.getDescription(),
-                category.getStatus(),
-                category.getCreatedAt()
-        );
+    public StaffUserManagementController(
+            StaffUserManagementService service
+    ) {
+        this.service = service;
+    }
+
+    @GetMapping
+    public List<StaffUserResponse> getAll(
+            Authentication authentication
+    ) {
+
+        requireStaff(authentication);
+
+        return service.getAllStaffUsers();
+    }
+
+    @GetMapping("/{id}")
+    public StaffUserResponse getById(
+            @PathVariable UUID id,
+            Authentication authentication
+    ) {
+
+        requireStaff(authentication);
+
+        return service.getStaffUser(id);
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public StaffUserResponse create(
+            @Valid @RequestBody CreateStaffUserRequest request,
+            Authentication authentication
+    ) {
+
+        requireStaff(authentication);
+
+        return service.createStaffUser(request);
+    }
+
+    @PutMapping("/{id}")
+    public StaffUserResponse update(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateStaffUserRequest request,
+            Authentication authentication
+    ) {
+
+        requireStaff(authentication);
+
+        return service.updateStaffUser(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(
+            @PathVariable UUID id,
+            Authentication authentication
+    ) {
+
+        requireStaff(authentication);
+
+        service.deleteStaffUser(id);
+    }
+
+    private void requireStaff(
+            Authentication authentication
+    ) {
+
+        if (authentication == null
+                || !authentication.isAuthenticated()) {
+
+            throw new SecurityException(
+                    "Authentication required"
+            );
+        }
+
+        /*
+         * Your application has STAFF and CUSTOMER.
+         * There is NO ADMIN.
+         */
+
+        boolean staff = authentication.getAuthorities()
+                .stream()
+                .anyMatch(authority -> {
+
+                    String value =
+                            authority.getAuthority();
+
+                    return value.equals("STAFF")
+                            || value.equals("ROLE_STAFF");
+                });
+
+        if (!staff) {
+            throw new SecurityException(
+                    "Only staff users can perform this operation"
+            );
+        }
     }
 }
 
 
+package com.insurewise.auth.service;
 
-package com.insurewise.policy.entity;
-
-import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
-import java.time.LocalDateTime;
-import java.util.UUID;
-
-@Entity
-@Table(name = "categories")
-@Getter
-@Setter
-@NoArgsConstructor
-public class Category {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
-
-    @Column(
-            nullable = false,
-            length = 80
-    )
-    private String name;
-
-    @Column(
-            nullable = false,
-            length = 500
-    )
-    private String description;
-
-    @Column(
-            nullable = false,
-            length = 20
-    )
-    private String status;
-
-    @Column(
-            name = "created_at",
-            nullable = false
-    )
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-
-        if (createdAt == null) {
-            createdAt = LocalDateTime.now();
-        }
-
-        if (status == null || status.isBlank()) {
-            status = "ACTIVE";
-        }
-    }
-}
-
-
-
-
-package com.insurewise.policy.repository;
-
-import com.insurewise.policy.entity.Category;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-import java.util.UUID;
-
-public interface CategoryRepository
-        extends JpaRepository<Category, UUID> {
-
-    boolean existsByNameIgnoreCase(String name);
-
-    boolean existsByNameIgnoreCaseAndIdNot(
-            String name,
-            UUID id
-    );
-}
-
-
-
-
-
-package com.insurewise.policy.service;
-
-import com.insurewise.policy.dto.CategoryRequest;
-import com.insurewise.policy.dto.CategoryResponse;
-import com.insurewise.policy.entity.Category;
-import com.insurewise.policy.repository.CategoryRepository;
+import com.insurewise.auth.dto.CreateStaffUserRequest;
+import com.insurewise.auth.dto.StaffUserResponse;
+import com.insurewise.auth.dto.UpdateStaffUserRequest;
+import com.insurewise.auth.entity.StaffUser;
+import com.insurewise.auth.repository.StaffUserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -146,168 +134,120 @@ import java.util.UUID;
 
 @Service
 @Transactional
-public class CategoryService {
+public class StaffUserManagementService {
 
-    private final CategoryRepository categoryRepository;
+    private final StaffUserRepository staffUserRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public CategoryService(
-            CategoryRepository categoryRepository
+    public StaffUserManagementService(
+            StaffUserRepository staffUserRepository,
+            PasswordEncoder passwordEncoder
     ) {
-        this.categoryRepository = categoryRepository;
+        this.staffUserRepository = staffUserRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional(readOnly = true)
-    public List<CategoryResponse> getAll() {
+    public List<StaffUserResponse> getAllStaffUsers() {
 
-        return categoryRepository.findAll()
+        return staffUserRepository.findAll()
                 .stream()
-                .map(CategoryResponse::from)
+                .map(StaffUserResponse::from)
                 .toList();
     }
 
-    public CategoryResponse create(
-            CategoryRequest request
+    @Transactional(readOnly = true)
+    public StaffUserResponse getStaffUser(UUID id) {
+
+        StaffUser staffUser = findStaffUser(id);
+
+        return StaffUserResponse.from(staffUser);
+    }
+
+    public StaffUserResponse createStaffUser(
+            CreateStaffUserRequest request
     ) {
 
-        String name = request.name().trim();
+        String email = request.email().trim();
 
-        if (categoryRepository.existsByNameIgnoreCase(name)) {
+        if (staffUserRepository.existsByEmail(email)) {
             throw new IllegalArgumentException(
-                    "A category with this name already exists"
+                    "A staff user with this email already exists"
             );
         }
 
-        Category category = new Category();
+        StaffUser staffUser = new StaffUser();
 
-        category.setName(name);
+        staffUser.setId(UUID.randomUUID());
+        staffUser.setFullName(request.fullName().trim());
+        staffUser.setEmail(email);
+        staffUser.setAddress(request.address().trim());
 
-        category.setDescription(
-                request.description().trim()
+        // NEVER store raw password
+        staffUser.setPasswordHash(
+                passwordEncoder.encode(request.password())
         );
 
-        String status =
-                request.status()
-                        .trim()
-                        .toUpperCase();
+        StaffUser saved =
+                staffUserRepository.save(staffUser);
 
-        validateStatus(status);
-
-        category.setStatus(status);
-
-        return CategoryResponse.from(
-                categoryRepository.save(category)
-        );
+        return StaffUserResponse.from(saved);
     }
 
-    public CategoryResponse update(
+    public StaffUserResponse updateStaffUser(
             UUID id,
-            CategoryRequest request
+            UpdateStaffUserRequest request
     ) {
 
-        Category category =
-                categoryRepository.findById(id)
-                        .orElseThrow(() ->
-                                new IllegalArgumentException(
-                                        "Category not found"
-                                )
-                        );
+        StaffUser staffUser = findStaffUser(id);
 
-        String name = request.name().trim();
+        String email = request.email().trim();
 
-        if (categoryRepository
-                .existsByNameIgnoreCaseAndIdNot(
-                        name,
-                        id
-                )) {
-
+        if (staffUserRepository.existsByEmailAndIdNot(
+                email,
+                id
+        )) {
             throw new IllegalArgumentException(
-                    "A category with this name already exists"
+                    "A staff user with this email already exists"
             );
         }
 
-        category.setName(name);
-
-        category.setDescription(
-                request.description().trim()
+        staffUser.setFullName(
+                request.fullName().trim()
         );
 
-        String status =
-                request.status()
-                        .trim()
-                        .toUpperCase();
+        staffUser.setEmail(email);
 
-        validateStatus(status);
-
-        category.setStatus(status);
-
-        return CategoryResponse.from(
-                categoryRepository.save(category)
+        staffUser.setAddress(
+                request.address().trim()
         );
+
+        /*
+         * Password intentionally NOT changed.
+         */
+
+        StaffUser saved =
+                staffUserRepository.save(staffUser);
+
+        return StaffUserResponse.from(saved);
     }
 
-    private void validateStatus(String status) {
+    public void deleteStaffUser(UUID id) {
 
-        if (!"ACTIVE".equals(status)
-                && !"INACTIVE".equals(status)) {
+        StaffUser staffUser = findStaffUser(id);
 
-            throw new IllegalArgumentException(
-                    "Category status must be ACTIVE or INACTIVE"
-            );
-        }
-    }
-}
-
-
-
-
-package com.insurewise.policy.controller;
-
-import com.insurewise.policy.dto.CategoryRequest;
-import com.insurewise.policy.dto.CategoryResponse;
-import com.insurewise.policy.service.CategoryService;
-import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.UUID;
-
-@RestController
-@RequestMapping("/api/categories")
-public class CategoryController {
-
-    private final CategoryService categoryService;
-
-    public CategoryController(
-            CategoryService categoryService
-    ) {
-        this.categoryService = categoryService;
+        staffUserRepository.delete(staffUser);
     }
 
-    @GetMapping
-    public List<CategoryResponse> getAllCategories() {
+    private StaffUser findStaffUser(UUID id) {
 
-        return categoryService.getAll();
-    }
-
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public CategoryResponse createCategory(
-            @Valid @RequestBody CategoryRequest request
-    ) {
-
-        return categoryService.create(request);
-    }
-
-    @PutMapping("/{id}")
-    public CategoryResponse updateCategory(
-            @PathVariable UUID id,
-            @Valid @RequestBody CategoryRequest request
-    ) {
-
-        return categoryService.update(id, request);
+        return staffUserRepository.findById(id)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Staff user not found"
+                        )
+                );
     }
 }
-
 
 
