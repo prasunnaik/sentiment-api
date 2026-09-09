@@ -1,118 +1,328 @@
-package com.insurewise.auth.controller;
+package com.insurewise.policy.entity;
 
-import com.insurewise.auth.dto.CreateStaffUserRequest;
-import com.insurewise.auth.dto.StaffUserResponse;
-import com.insurewise.auth.dto.UpdateStaffUserRequest;
-import com.insurewise.auth.service.StaffUserManagementService;
-import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-import java.util.List;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
-@RestController
-@RequestMapping("/api/auth/staff-users")
-public class StaffUserManagementController {
+@Entity
+@Table(name = "categories")
+@Getter
+@Setter
+@NoArgsConstructor
+public class Category {
 
-    private final StaffUserManagementService service;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
-    public StaffUserManagementController(
-            StaffUserManagementService service
-    ) {
-        this.service = service;
-    }
+    @Column(nullable = false, length = 80)
+    private String name;
 
-    @GetMapping
-    public List<StaffUserResponse> getAll(
-            Authentication authentication
-    ) {
+    @Column(nullable = false, length = 500)
+    private String description;
 
-        requireStaff(authentication);
+    @Column(nullable = false, length = 20)
+    private String status;
 
-        return service.getAllStaffUsers();
-    }
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
 
-    @GetMapping("/{id}")
-    public StaffUserResponse getById(
-            @PathVariable UUID id,
-            Authentication authentication
-    ) {
-
-        requireStaff(authentication);
-
-        return service.getStaffUser(id);
-    }
-
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public StaffUserResponse create(
-            @Valid @RequestBody CreateStaffUserRequest request,
-            Authentication authentication
-    ) {
-
-        requireStaff(authentication);
-
-        return service.createStaffUser(request);
-    }
-
-    @PutMapping("/{id}")
-    public StaffUserResponse update(
-            @PathVariable UUID id,
-            @Valid @RequestBody UpdateStaffUserRequest request,
-            Authentication authentication
-    ) {
-
-        requireStaff(authentication);
-
-        return service.updateStaffUser(id, request);
-    }
-
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(
-            @PathVariable UUID id,
-            Authentication authentication
-    ) {
-
-        requireStaff(authentication);
-
-        service.deleteStaffUser(id);
-    }
-
-    private void requireStaff(
-            Authentication authentication
-    ) {
-
-        if (authentication == null
-                || !authentication.isAuthenticated()) {
-
-            throw new SecurityException(
-                    "Authentication required"
-            );
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
         }
 
-        /*
-         * Your application has STAFF and CUSTOMER.
-         * There is NO ADMIN.
-         */
-
-        boolean staff = authentication.getAuthorities()
-                .stream()
-                .anyMatch(authority -> {
-
-                    String value =
-                            authority.getAuthority();
-
-                    return value.equals("STAFF")
-                            || value.equals("ROLE_STAFF");
-                });
-
-        if (!staff) {
-            throw new SecurityException(
-                    "Only staff users can perform this operation"
-            );
+        if (status == null) {
+            status = "ACTIVE";
         }
     }
 }
+
+
+
+package com.insurewise.policy.entity;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Entity
+@Table(name = "policies")
+@Getter
+@Setter
+@NoArgsConstructor
+public class Policy {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(nullable = false, length = 120)
+    private String name;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "category_id", nullable = false)
+    private Category category;
+
+    @Column(name = "coverage_amount",
+            nullable = false,
+            precision = 14,
+            scale = 2)
+    private BigDecimal coverageAmount;
+
+    @Column(name = "premium_amount",
+            nullable = false,
+            precision = 10,
+            scale = 2)
+    private BigDecimal premiumAmount;
+
+    @Column(name = "duration_label",
+            nullable = false,
+            length = 40)
+    private String durationLabel;
+
+    @Column(nullable = false, length = 20)
+    private String status;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+
+        if (status == null) {
+            status = "DRAFT";
+        }
+    }
+}
+
+
+
+
+package com.insurewise.policy.entity;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Entity
+@Table(name = "policy_applications")
+@Getter
+@Setter
+@NoArgsConstructor
+public class PolicyApplication {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(name = "application_code",
+            nullable = false,
+            unique = true,
+            length = 20)
+    private String applicationCode;
+
+    @Column(name = "customer_id", nullable = false)
+    private UUID customerId;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "policy_id", nullable = false)
+    private Policy policy;
+
+    @Column(name = "coverage_type",
+            nullable = false,
+            length = 20)
+    private String coverageType;
+
+    @Column(name = "coverage_amount",
+            nullable = false,
+            precision = 14,
+            scale = 2)
+    private BigDecimal coverageAmount;
+
+    @Column(name = "premium_amount",
+            nullable = false,
+            precision = 10,
+            scale = 2)
+    private BigDecimal premiumAmount;
+
+    @Column(name = "date_of_birth", nullable = false)
+    private LocalDate dateOfBirth;
+
+    @Column(nullable = false, length = 500)
+    private String address;
+
+    @Column(name = "preferred_start_date")
+    private LocalDate preferredStartDate;
+
+    @Column(name = "nominee_name", length = 120)
+    private String nomineeName;
+
+    @Column(name = "nominee_relationship", length = 20)
+    private String nomineeRelationship;
+
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "end_date")
+    private LocalDate endDate;
+
+    @Column(nullable = false, length = 20)
+    private String status;
+
+    @Column(name = "decided_by")
+    private UUID decidedBy;
+
+    @Column(name = "decided_at")
+    private LocalDateTime decidedAt;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+
+        if (status == null) {
+            status = "PENDING";
+        }
+    }
+}
+
+
+
+
+package com.insurewise.policy.entity;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Entity
+@Table(name = "application_documents")
+@Getter
+@Setter
+@NoArgsConstructor
+public class ApplicationDocument {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "policy_application_id", nullable = false)
+    private PolicyApplication policyApplication;
+
+    @Column(name = "file_name",
+            nullable = false,
+            length = 255)
+    private String fileName;
+
+    @Column(name = "content_type",
+            length = 100)
+    private String contentType;
+
+    @Column(name = "s3_key",
+            nullable = false,
+            length = 600)
+    private String s3Key;
+
+    @Column(name = "uploaded_by",
+            nullable = false)
+    private UUID uploadedBy;
+
+    @Column(name = "created_at",
+            nullable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
+}
+
+
+
+
+package com.insurewise.policy.entity;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Entity
+@Table(name = "dependents")
+@Getter
+@Setter
+@NoArgsConstructor
+public class Dependent {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "policy_application_id",
+            nullable = false)
+    private PolicyApplication policyApplication;
+
+    @Column(name = "full_name",
+            nullable = false,
+            length = 120)
+    private String fullName;
+
+    @Column(nullable = false, length = 20)
+    private String relationship;
+
+    @Column(name = "date_of_birth", nullable = false)
+    private LocalDate dateOfBirth;
+
+    @Column(nullable = false, length = 10)
+    private String gender;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
+}
+
+
