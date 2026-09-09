@@ -1,109 +1,100 @@
-package com.insurewise.policy.repository;
+package com.insurewise.policy.dto;
 
-import com.insurewise.policy.entity.Category;
-import org.springframework.data.jpa.repository.JpaRepository;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
-import java.util.UUID;
+public record CategoryRequest(
 
-public interface CategoryRepository
-        extends JpaRepository<Category, UUID> {
+        @NotBlank(message = "Category name is required")
+        @Size(max = 80)
+        String name,
 
-    boolean existsByNameIgnoreCase(String name);
+        @NotBlank(message = "Category description is required")
+        @Size(max = 500)
+        String description,
 
-    boolean existsByNameIgnoreCaseAndIdNot(
-            String name,
-            UUID id
-    );
+        @NotBlank(message = "Category status is required")
+        String status
+) {
 }
 
 
-package com.insurewise.policy.repository;
+
+package com.insurewise.policy.dto;
+
+import jakarta.validation.constraints.*;
+
+import java.math.BigDecimal;
+import java.util.UUID;
+
+public record PolicyRequest(
+
+        @NotBlank(message = "Policy name is required")
+        @Size(max = 120)
+        String name,
+
+        @NotNull(message = "Category is required")
+        UUID categoryId,
+
+        @NotNull(message = "Coverage amount is required")
+        @DecimalMin(
+                value = "0.01",
+                message = "Coverage must be greater than zero"
+        )
+        BigDecimal coverageAmount,
+
+        @NotNull(message = "Premium amount is required")
+        @DecimalMin(
+                value = "0.01",
+                message = "Premium must be greater than zero"
+        )
+        BigDecimal premiumAmount,
+
+        @NotBlank(message = "Duration is required")
+        @Size(max = 40)
+        String durationLabel,
+
+        @NotBlank(message = "Status is required")
+        String status
+) {
+}
+
+
+
+
+package com.insurewise.policy.dto;
 
 import com.insurewise.policy.entity.Policy;
-import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
-public interface PolicyRepository
-        extends JpaRepository<Policy, UUID> {
+public record PolicyResponse(
 
-    List<Policy> findByStatusOrderByCreatedAtDesc(
-            String status
-    );
+        UUID id,
+        String name,
+        UUID categoryId,
+        String categoryName,
+        BigDecimal coverageAmount,
+        BigDecimal premiumAmount,
+        String durationLabel,
+        String status,
+        LocalDateTime createdAt
+) {
 
-    boolean existsByCategoryId(UUID categoryId);
+    public static PolicyResponse from(Policy policy) {
 
-    boolean existsByCategoryIdAndStatus(
-            UUID categoryId,
-            String status
-    );
+        return new PolicyResponse(
+                policy.getId(),
+                policy.getName(),
+                policy.getCategory().getId(),
+                policy.getCategory().getName(),
+                policy.getCoverageAmount(),
+                policy.getPremiumAmount(),
+                policy.getDurationLabel(),
+                policy.getStatus(),
+                policy.getCreatedAt()
+        );
+    }
 }
-
-
-
-package com.insurewise.policy.repository;
-
-import com.insurewise.policy.entity.PolicyApplication;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-import java.util.List;
-import java.util.UUID;
-
-public interface PolicyApplicationRepository
-        extends JpaRepository<PolicyApplication, UUID> {
-
-    List<PolicyApplication> findByStatusOrderByCreatedAtAsc(
-            String status
-    );
-
-    boolean existsByPolicyIdAndStatusIn(
-            UUID policyId,
-            List<String> statuses
-    );
-
-    List<PolicyApplication> findByCustomerIdOrderByCreatedAtDesc(
-            UUID customerId
-    );
-}
-
-
-
-
-package com.insurewise.policy.repository;
-
-import com.insurewise.policy.entity.ApplicationDocument;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-import java.util.List;
-import java.util.UUID;
-
-public interface ApplicationDocumentRepository
-        extends JpaRepository<ApplicationDocument, UUID> {
-
-    List<ApplicationDocument>
-    findByPolicyApplicationIdOrderByCreatedAtDesc(
-            UUID policyApplicationId
-    );
-}
-
-
-
-package com.insurewise.policy.repository;
-
-import com.insurewise.policy.entity.Dependent;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-import java.util.List;
-import java.util.UUID;
-
-public interface DependentRepository
-        extends JpaRepository<Dependent, UUID> {
-
-    List<Dependent> findByPolicyApplicationId(
-            UUID policyApplicationId
-    );
-}
-
-
-
