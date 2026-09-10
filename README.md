@@ -1,70 +1,213 @@
-package com.insurewise.auth.dto.request;
+package com.insurewise.auth.service;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import com.insurewise.auth.dto.request.StaffCreateRequest;
+import com.insurewise.auth.dto.request.StaffUpdateRequest;
+import com.insurewise.auth.dto.response.StaffProfileResponse;
+import com.insurewise.auth.entity.StaffUser;
+import com.insurewise.auth.exception.DuplicateEmailException;
+import com.insurewise.auth.repository.CustomerRepository;
+import com.insurewise.auth.repository.StaffUserRepository;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-public record StaffCreateRequest(
+@Service
+@Transactional
+public class StaffUserService {
 
-        @NotBlank
-        @Size(max = 120)
-        String fullName,
+    private final StaffUserRepository staffUserRepository;
+    private final CustomerRepository customerRepository;
+    private final PasswordEncoder passwordEncoder;
 
-        @NotBlank
-        @Email
-        @Size(max = 160)
-        String email,
+    public StaffUserService(
+            StaffUserRepository staffUserRepository,
+            CustomerRepository customerRepository,
+            PasswordEncoder passwordEncoder) {
 
-        @NotBlank
-        @Size(max = 240)
-        String address,
+        this.staffUserRepository = staffUserRepository;
+        this.customerRepository = customerRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
 
-        @NotBlank
-        @Size(min = 8, max = 100)
-        String password
-) {
-}
+    public StaffProfileResponse create(
+            StaffCreateRequest request) {
 
+        String email = request.email().toLowerCase();
 
-package com.insurewise.auth.dto.request;
+        validateEmailNotUsed(email);
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+        StaffUser staffUser = new StaffUser(
+                request.fullName(),
+                email,
+                request.address(),
+                passwordEncoder.encode(request.password()));
 
-public record StaffUpdateRequest(
+        return toResponse(
+                staffUserRepository.save(staffUser));
+    }
 
-        @NotBlank
-        @Size(max = 120)
-        String fullName,
+    @Transactional(readOnly = true)
+    public List<StaffProfileResponse> list() {
 
-        @NotBlank
-        @Email
-        @Size(max = 160)
-        String email,
+        return staffUserRepository.findAll()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
 
-        @NotBlank
-        @Size(max = 240)
-        String address,
+    @Transactional(readOnly = true)
+    public StaffProfileResponse get(UUID id) {
 
-        @Size(min = 8, max = 100)
-        String password
-) {
-}
+        return toResponse(find(id));
+    }
 
+    public StaffProfileResponse update(
+            UUID id,
+            StaffUpdateRequest request) {
 
+        StaffUser staffUser = find(id);
 
-public void update(
-        String fullName,
-        String email,
-        String address,
-        String passwordHash) {
+        String email = request.email().toLowerCase();
 
-    this.fullName = fullName;
-    this.email = email.toLowerCase();
-    this.address = address;
+        boolean emailUsedByAnotherStaff =
+                staffUserRepository
+                        .findByEmailIgnoreCase(email)
+                        .filter(existing ->
+                                !existing.getId().equals(id))
+                        .isPresent();
 
-    if (passwordHash != null && !passwordHash.isBlank()) {
-        this.passwordHash = passwordHash;
+        boolean emailUsedByCustomer =
+                customerRepository
+                        .existsByEmailIgnoreCase(email);
+
+        if (emailUsedByAnotherStaff || emailUsedByCustomer) {
+            throw new DuplicateEmailException(email);
+        }
+
+        String passwordHash = null;
+
+        if (request.password() != null
+                && !request.password().isBlank()) {
+
+            passwordHash =
+                    passwordEncoder.encode(request.password());
+        }
+
+        staffUser.update(
+                request.fullName(),
+                email,
+                request.address(),
+                passwordHash);
+
+        return toResponse(staffUser);
+    }
+
+    public void delete(UUID id) {
+
+        StaffUser staffUser = find(id);
+
+        staffUserRepository.delete(staffUser);
+    }
+
+    private StaffUser find(UUID id) {
+
+        return staffUserRepository.findById(id)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Staff user not found: " + id));
+    }
+
+    private void validateEmailNotUsed(String email) {
+
+        if (staffUserRepository.existsByEmailIgnoreCase(email)
+                || customerRepository.existsByEmailIgnoreCase(email)) {
+
+            throw new DuplicateEmailException(email);
+        }
+    }
+
+    private StaffProfileResponse toResponse(
+            StaffUser staffUser) {
+
+        return new StaffProfileResponse(
+                staffUser.getId(),
+                staffUser.getFullName(),
+                staffUser.getEmail(),
+                staffUser.getAddress());
     }
 }
+
+
+
+package com.insurewise.auth.controller;
+
+import com.insurewise.auth.dto.request.StaffCreateRequest;
+import com.insurewise.auth.dto.request.StaffUpdateRequest;
+import com.insurewise.auth.dto.response.StaffProfileResponse;
+import com.insurewise.auth.service.StaffUserService;
+import jakarta.validation.Valid;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/staff/users")
+@PreAuthorize("hasRole('STAFF')")
+public class StaffUserManagementController {
+
+    private final StaffUserService staffUserService;
+
+    public StaffUserManagementController(
+            StaffUserService staffUserService) {
+
+        this.staffUserService = staffUserService;
+    }
+
+    @PostMapping
+    public ResponseEntity<StaffProfileResponse> create(
+            @Valid @RequestBody StaffCreateRequest request) {
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(staffUserService.create(request));
+    }
+
+    @GetMapping
+    public List<StaffProfileResponse> list() {
+
+        return staffUserService.list();
+    }
+
+    @GetMapping("/{id}")
+    public StaffProfileResponse get(
+            @PathVariable UUID id) {
+
+        return staffUserService.get(id);
+    }
+
+    @PutMapping("/{id}")
+    public StaffProfileResponse update(
+            @PathVariable UUID id,
+            @Valid @RequestBody StaffUpdateRequest request) {
+
+        return staffUserService.update(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(
+            @PathVariable UUID id) {
+
+        staffUserService.delete(id);
+
+        return ResponseEntity.noContent().build();
+    }
+}
+
+
+
+
