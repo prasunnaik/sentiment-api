@@ -27,3 +27,74 @@ public AuthResponse registerCustomer(
         throw exception;
     }
 }
+
+
+
+@Transactional(readOnly = true)
+public AuthResponse loginCustomer(
+        CustomerLoginRequest request) {
+
+    try {
+        Customer customer = customerRepository
+                .findByEmailIgnoreCase(request.email())
+                .orElseThrow(InvalidCredentialsException::new);
+
+        if (!passwordEncoder.matches(
+                request.password(),
+                customer.getPasswordHash())) {
+            throw new InvalidCredentialsException();
+        }
+
+        return createResponse(customer);
+
+    } catch (Exception exception) {
+        System.err.println(
+                "Error in loginCustomer: "
+                        + exception.getMessage());
+
+        throw exception;
+    }
+}
+
+
+
+
+@Transactional(readOnly = true)
+public AuthResponse loginStaff(
+        StaffLoginRequest request) {
+
+    try {
+        StaffUser staff = staffUserRepository
+                .findByEmailIgnoreCase(request.email())
+                .orElseThrow(InvalidCredentialsException::new);
+
+        if (!passwordEncoder.matches(
+                request.password(),
+                staff.getPasswordHash())) {
+            throw new InvalidCredentialsException();
+        }
+
+        String token = jwtService.generate(
+                staff.getId(),
+                staff.getEmail(),
+                JwtRole.STAFF);
+
+        return new AuthResponse(
+                token,
+                "Bearer",
+                staff.getId(),
+                staff.getEmail(),
+                JwtRole.STAFF.name());
+
+    } catch (Exception exception) {
+        System.err.println(
+                "Error in loginStaff: "
+                        + exception.getMessage());
+
+        throw exception;
+    }
+}
+
+
+
+
