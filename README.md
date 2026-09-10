@@ -1,27 +1,116 @@
-public AuthResponse registerCustomer(
-        CustomerRegistrationRequest request) {
+public StaffProfileResponse create(
+        StaffCreateRequest request) {
 
     try {
         String email = request.email().toLowerCase();
 
-        if (customerRepository.existsByEmailIgnoreCase(email)
-                || staffUserRepository.existsByEmailIgnoreCase(email)) {
+        validateEmailNotUsed(email);
+
+        StaffUser staffUser = new StaffUser(
+                request.fullName(),
+                email,
+                request.address(),
+                passwordEncoder.encode(request.password()));
+
+        return toResponse(
+                staffUserRepository.save(staffUser));
+
+    } catch (Exception exception) {
+        System.err.println(
+                "Error in StaffUserService.create: "
+                        + exception.getMessage());
+
+        throw exception;
+    }
+}
+
+
+@Transactional(readOnly = true)
+public List<StaffProfileResponse> list() {
+
+    try {
+        return staffUserRepository.findAll()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
+    } catch (Exception exception) {
+        System.err.println(
+                "Error in StaffUserService.list: "
+                        + exception.getMessage());
+
+        throw exception;
+    }
+}
+
+
+
+
+@Transactional(readOnly = true)
+public StaffProfileResponse get(UUID id) {
+
+    try {
+        return toResponse(find(id));
+
+    } catch (Exception exception) {
+        System.err.println(
+                "Error in StaffUserService.get: "
+                        + exception.getMessage());
+
+        throw exception;
+    }
+}
+
+
+
+public StaffProfileResponse update(
+        UUID id,
+        StaffUpdateRequest request) {
+
+    try {
+
+        // KEEP YOUR EXISTING CODE HERE
+
+        StaffUser staffUser = find(id);
+
+        String email = request.email().toLowerCase();
+
+        boolean emailUsedByAnotherStaff =
+                staffUserRepository
+                        .findByEmailIgnoreCase(email)
+                        .filter(existing ->
+                                !existing.getId().equals(id))
+                        .isPresent();
+
+        boolean emailUsedByCustomer =
+                customerRepository
+                        .existsByEmailIgnoreCase(email);
+
+        if (emailUsedByAnotherStaff
+                || emailUsedByCustomer) {
             throw new DuplicateEmailException(email);
         }
 
-        Customer customer = new Customer(
+        String passwordHash = null;
+
+        if (request.password() != null
+                && !request.password().isBlank()) {
+
+            passwordHash =
+                    passwordEncoder.encode(request.password());
+        }
+
+        staffUser.update(
                 request.fullName(),
-                request.phone(),
                 email,
-                passwordEncoder.encode(request.password()));
+                request.address(),
+                passwordHash);
 
-        customerRepository.save(customer);
-
-        return createResponse(customer);
+        return toResponse(staffUser);
 
     } catch (Exception exception) {
         System.err.println(
-                "Error in registerCustomer: "
+                "Error in StaffUserService.update: "
                         + exception.getMessage());
 
         throw exception;
@@ -30,71 +119,19 @@ public AuthResponse registerCustomer(
 
 
 
-@Transactional(readOnly = true)
-public AuthResponse loginCustomer(
-        CustomerLoginRequest request) {
+
+public void delete(UUID id) {
 
     try {
-        Customer customer = customerRepository
-                .findByEmailIgnoreCase(request.email())
-                .orElseThrow(InvalidCredentialsException::new);
+        StaffUser staffUser = find(id);
 
-        if (!passwordEncoder.matches(
-                request.password(),
-                customer.getPasswordHash())) {
-            throw new InvalidCredentialsException();
-        }
-
-        return createResponse(customer);
+        staffUserRepository.delete(staffUser);
 
     } catch (Exception exception) {
         System.err.println(
-                "Error in loginCustomer: "
+                "Error in StaffUserService.delete: "
                         + exception.getMessage());
 
         throw exception;
     }
 }
-
-
-
-
-@Transactional(readOnly = true)
-public AuthResponse loginStaff(
-        StaffLoginRequest request) {
-
-    try {
-        StaffUser staff = staffUserRepository
-                .findByEmailIgnoreCase(request.email())
-                .orElseThrow(InvalidCredentialsException::new);
-
-        if (!passwordEncoder.matches(
-                request.password(),
-                staff.getPasswordHash())) {
-            throw new InvalidCredentialsException();
-        }
-
-        String token = jwtService.generate(
-                staff.getId(),
-                staff.getEmail(),
-                JwtRole.STAFF);
-
-        return new AuthResponse(
-                token,
-                "Bearer",
-                staff.getId(),
-                staff.getEmail(),
-                JwtRole.STAFF.name());
-
-    } catch (Exception exception) {
-        System.err.println(
-                "Error in loginStaff: "
-                        + exception.getMessage());
-
-        throw exception;
-    }
-}
-
-
-
-
