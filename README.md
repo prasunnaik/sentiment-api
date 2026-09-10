@@ -31,17 +31,25 @@ public class ClaimDependentService {
             UUID claimId,
             ClaimDependentRequest request) {
 
-        Claim claim = requireOwnedClaim(customerId, claimId);
+        try {
+            Claim claim = requireOwnedClaim(customerId, claimId);
 
-        ClaimDependent dependent = dependentRepository.save(
-                new ClaimDependent(
-                        claim,
-                        request.fullName(),
-                        request.relationship(),
-                        request.dateOfBirth(),
-                        request.gender()));
+            ClaimDependent dependent = dependentRepository.save(
+                    new ClaimDependent(
+                            claim,
+                            request.fullName(),
+                            request.relationship(),
+                            request.dateOfBirth(),
+                            request.gender()));
 
-        return toResponse(dependent);
+            return toResponse(dependent);
+
+        } catch (Exception exception) {
+            System.err.println(
+                    "Error in ClaimDependentService.addDependent: "
+                            + exception.getMessage());
+            throw exception;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -49,12 +57,20 @@ public class ClaimDependentService {
             UUID customerId,
             UUID claimId) {
 
-        requireOwnedClaim(customerId, claimId);
+        try {
+            requireOwnedClaim(customerId, claimId);
 
-        return dependentRepository.findByClaimId(claimId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
+            return dependentRepository.findByClaimId(claimId)
+                    .stream()
+                    .map(this::toResponse)
+                    .toList();
+
+        } catch (Exception exception) {
+            System.err.println(
+                    "Error in ClaimDependentService.listDependents: "
+                            + exception.getMessage());
+            throw exception;
+        }
     }
 
     private Claim requireOwnedClaim(UUID customerId, UUID claimId) {
@@ -74,6 +90,10 @@ public class ClaimDependentService {
                 dependent.getGender());
     }
 }
+
+
+
+
 package com.insurewise.claims.service;
 
 import com.insurewise.claims.dto.response.ClaimDocumentResponse;
@@ -91,6 +111,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.insurewise.claims.exception.ClaimDocumentNotFoundException;
 import com.insurewise.common.exception.InvalidFileException;
 import com.insurewise.claims.exception.ClaimNotFoundException;
+
 
 @Service
 @Transactional
@@ -113,31 +134,39 @@ public class ClaimDocumentService {
             UUID claimId,
             MultipartFile file) {
 
-        Claim claim = requireOwnedClaim(customerId, claimId);
+        try {
+            Claim claim = requireOwnedClaim(customerId, claimId);
 
-        if (file == null || file.isEmpty()) {
-            throw new InvalidFileException(
-                    "A non-empty file is required");
+            if (file == null || file.isEmpty()) {
+                throw new InvalidFileException(
+                        "A non-empty file is required");
+            }
+
+            String s3Key = storageService.upload(
+                    file,
+                    "claim-documents",
+                    customerId);
+
+            String fileName = file.getOriginalFilename() == null
+                    ? "unnamed-file"
+                    : file.getOriginalFilename();
+
+            ClaimDocument document = documentRepository.save(
+                    new ClaimDocument(
+                            claim,
+                            fileName,
+                            file.getContentType(),
+                            s3Key,
+                            customerId));
+
+            return toResponse(document);
+
+        } catch (Exception exception) {
+            System.err.println(
+                    "Error in ClaimDocumentService.uploadDocument: "
+                            + exception.getMessage());
+            throw exception;
         }
-
-        String s3Key = storageService.upload(
-                file,
-                "claim-documents",
-                customerId);
-
-        String fileName = file.getOriginalFilename() == null
-                ? "unnamed-file"
-                : file.getOriginalFilename();
-
-        ClaimDocument document = documentRepository.save(
-                new ClaimDocument(
-                        claim,
-                        fileName,
-                        file.getContentType(),
-                        s3Key,
-                        customerId));
-
-        return toResponse(document);
     }
 
     @Transactional(readOnly = true)
@@ -145,12 +174,20 @@ public class ClaimDocumentService {
             UUID customerId,
             UUID claimId) {
 
-        requireOwnedClaim(customerId, claimId);
+        try {
+            requireOwnedClaim(customerId, claimId);
 
-        return documentRepository.findByClaimId(claimId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
+            return documentRepository.findByClaimId(claimId)
+                    .stream()
+                    .map(this::toResponse)
+                    .toList();
+
+        } catch (Exception exception) {
+            System.err.println(
+                    "Error in ClaimDocumentService.listDocuments: "
+                            + exception.getMessage());
+            throw exception;
+        }
     }
 
     public void deleteDocument(
@@ -158,16 +195,26 @@ public class ClaimDocumentService {
             UUID claimId,
             UUID documentId) {
 
-        requireOwnedClaim(customerId, claimId);
+        try {
+            requireOwnedClaim(customerId, claimId);
 
-        ClaimDocument document =
-                documentRepository.findById(documentId)
-                        .filter(item -> item.getClaim().getId()
-                                .equals(claimId))
-                        .orElseThrow(() -> new ClaimDocumentNotFoundException(documentId));
+            ClaimDocument document =
+                    documentRepository.findById(documentId)
+                            .filter(item -> item.getClaim().getId()
+                                    .equals(claimId))
+                            .orElseThrow(
+                                    () -> new ClaimDocumentNotFoundException(
+                                            documentId));
 
-        storageService.delete(document.getS3Key());
-        documentRepository.delete(document);
+            storageService.delete(document.getS3Key());
+            documentRepository.delete(document);
+
+        } catch (Exception exception) {
+            System.err.println(
+                    "Error in ClaimDocumentService.deleteDocument: "
+                            + exception.getMessage());
+            throw exception;
+        }
     }
 
     private Claim requireOwnedClaim(
@@ -196,6 +243,10 @@ public class ClaimDocumentService {
                 document.getCreatedAt());
     }
 }
+
+
+
+
 package com.insurewise.claims.service;
 
 import com.insurewise.claims.client.PolicyApplicationLookupClient;
@@ -203,13 +254,13 @@ import com.insurewise.claims.client.PolicyApplicationSnapshot;
 import com.insurewise.claims.dto.request.ClaimCreateRequest;
 import com.insurewise.claims.dto.response.ClaimResponse;
 import com.insurewise.claims.entity.Claim;
-import com.insurewise.claims.exception.ClaimDocumentNotFoundException;
 import com.insurewise.claims.repository.ClaimRepository;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.insurewise.common.exception.IdempotencyKeyConflictException;
 import com.insurewise.claims.exception.ClaimNotFoundException;
+
 
 @Service
 @Transactional
@@ -228,59 +279,83 @@ public class ClaimService {
             UUID customerId,
             ClaimCreateRequest request) {
 
-        var existing = claimRepository.findByIdempotencyKey(
-                request.idempotencyKey());
+        try {
+            var existing = claimRepository.findByIdempotencyKey(
+                    request.idempotencyKey());
 
-        if (existing.isPresent()) {
-            Claim claim = existing.get();
+            if (existing.isPresent()) {
+                Claim claim = existing.get();
 
-            if (!claim.isOwnedBy(customerId)) {
-                throw new IdempotencyKeyConflictException(
-                        "Idempotency key belongs to another customer");
+                if (!claim.isOwnedBy(customerId)) {
+                    throw new IdempotencyKeyConflictException(
+                            "Idempotency key belongs to another customer");
+                }
+
+                return toResponse(claim);
             }
 
-            return toResponse(claim);
+            PolicyApplicationSnapshot application =
+                    applicationClient.getActiveApplicationForCustomer(
+                            request.policyApplicationId(),
+                            customerId);
+
+            Long sequence = claimRepository.nextClaimCodeSequence();
+            String claimCode = "CLM-" + sequence;
+
+            Claim claim = new Claim(
+                    claimCode,
+                    request.idempotencyKey(),
+                    customerId,
+                    application.applicationId(),
+                    application.policyName(),
+                    request.incidentType(),
+                    request.incidentDate(),
+                    request.amount(),
+                    request.description(),
+                    request.documentRef());
+
+            return toResponse(claimRepository.save(claim));
+
+        } catch (Exception exception) {
+            System.err.println(
+                    "Error in ClaimService.fileClaim: "
+                            + exception.getMessage());
+            throw exception;
         }
-
-        PolicyApplicationSnapshot application =
-                applicationClient.getActiveApplicationForCustomer(
-                        request.policyApplicationId(),
-                        customerId);
-
-        Long sequence = claimRepository.nextClaimCodeSequence();
-        String claimCode = "CLM-" + sequence;
-
-        Claim claim = new Claim(
-                claimCode,
-                request.idempotencyKey(),
-                customerId,
-                application.applicationId(),
-                application.policyName(),
-                request.incidentType(),
-                request.incidentDate(),
-                request.amount(),
-                request.description(),
-                request.documentRef());
-
-        return toResponse(claimRepository.save(claim));
     }
 
     public ClaimResponse approveClaim(
             UUID staffUserId,
             UUID claimId) {
 
-        Claim claim = getClaimEntity(claimId);
-        claim.approve(staffUserId);
-        return toResponse(claim);
+        try {
+            Claim claim = getClaimEntity(claimId);
+            claim.approve(staffUserId);
+            return toResponse(claim);
+
+        } catch (Exception exception) {
+            System.err.println(
+                    "Error in ClaimService.approveClaim: "
+                            + exception.getMessage());
+            throw exception;
+        }
     }
 
     public ClaimResponse rejectClaim(
             UUID staffUserId,
             UUID claimId) {
 
-        Claim claim = getClaimEntity(claimId);
-        claim.reject(staffUserId);
-        return toResponse(claim);
+        try {
+            Claim claim = getClaimEntity(claimId);
+            claim.reject(staffUserId);
+            return toResponse(claim);
+
+        } catch (Exception exception) {
+            System.err.println(
+                    "Error in ClaimService.rejectClaim: "
+                            + exception.getMessage());
+            throw exception;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -288,23 +363,40 @@ public class ClaimService {
             UUID customerId,
             UUID claimId) {
 
-        Claim claim = getClaimEntity(claimId);
+        try {
+            Claim claim = getClaimEntity(claimId);
 
-        if (!claim.isOwnedBy(customerId)) {
-            throw new ClaimNotFoundException();
+            if (!claim.isOwnedBy(customerId)) {
+                throw new ClaimNotFoundException();
+            }
+
+            return toResponse(claim);
+
+        } catch (Exception exception) {
+            System.err.println(
+                    "Error in ClaimService.getClaimForCustomer: "
+                            + exception.getMessage());
+            throw exception;
         }
-
-        return toResponse(claim);
     }
 
     @Transactional(readOnly = true)
     public ClaimResponse getClaimForStaff(UUID claimId) {
-        return toResponse(getClaimEntity(claimId));
+
+        try {
+            return toResponse(getClaimEntity(claimId));
+
+        } catch (Exception exception) {
+            System.err.println(
+                    "Error in ClaimService.getClaimForStaff: "
+                            + exception.getMessage());
+            throw exception;
+        }
     }
 
     private Claim getClaimEntity(UUID claimId) {
         return claimRepository.findById(claimId)
-                .orElseThrow(() -> new ClaimDocumentNotFoundException(claimId));
+                .orElseThrow(() -> new ClaimNotFoundException(claimId));
     }
 
     private ClaimResponse toResponse(Claim claim) {
