@@ -1,124 +1,7 @@
-package com.insurewise.policy.controller;
-
-import com.insurewise.policy.dto.request.CategoryCreateRequest;
-import com.insurewise.policy.dto.request.CategoryUpdateRequest;
-import com.insurewise.policy.service.CategoryService;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.UUID;
-
-@RestController
-@RequestMapping("/api/categories")
-public class CategoryController {
-
-    private final CategoryService categoryService;
-
-    public CategoryController(
-            CategoryService categoryService) {
-
-        this.categoryService = categoryService;
-    }
-
-    @GetMapping
-    public ResponseEntity<?> getAll() {
-
-        try {
-
-            return ResponseEntity.ok(
-                    categoryService.getAll()
-            );
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-
-    @GetMapping("/active")
-    public ResponseEntity<?> getActive() {
-
-        try {
-
-            return ResponseEntity.ok(
-                    categoryService.getActive()
-            );
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-
-    @PostMapping
-    @PreAuthorize("hasRole('STAFF')")
-    public ResponseEntity<?> create(
-            @RequestBody
-            CategoryCreateRequest request) {
-
-        try {
-
-            return ResponseEntity
-                    .status(HttpStatus.CREATED)
-                    .body(
-                            categoryService.create(request)
-                    );
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-
-    @PutMapping("/{id}")
-    @PreAuthorize("hasRole('STAFF')")
-    public ResponseEntity<?> update(
-            @PathVariable UUID id,
-            @RequestBody
-            CategoryUpdateRequest request) {
-
-        try {
-
-            return ResponseEntity.ok(
-                    categoryService.update(
-                            id,
-                            request
-                    )
-            );
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('STAFF')")
-    public ResponseEntity<?> delete(
-            @PathVariable UUID id) {
-
-        try {
-
-            categoryService.delete(id);
-
-            return ResponseEntity
-                    .noContent()
-                    .build();
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-}
-
 package com.insurewise.policy.service;
 
 import com.insurewise.policy.dto.request.CategoryCreateRequest;
-import com.insurewise.policy.dto.request.CategoryCreateRequest;
+import com.insurewise.policy.dto.request.CategoryUpdateRequest;
 import com.insurewise.policy.dto.response.CategoryResponse;
 import com.insurewise.policy.entity.Category;
 import com.insurewise.policy.exception.CategoryNotFoundException;
@@ -137,7 +20,6 @@ import java.util.UUID;
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
-
     private final PolicyRepository policyRepository;
 
     public CategoryService(
@@ -164,10 +46,7 @@ public class CategoryService {
 
         } catch (Exception e) {
 
-            log.error(
-                    "Error fetching categories",
-                    e
-            );
+            log.error("Error fetching categories", e);
 
             throw new RuntimeException(
                     "Unable to fetch categories: "
@@ -211,7 +90,7 @@ public class CategoryService {
     }
 
     // =========================
-    // CREATE
+    // CREATE CATEGORY
     // =========================
 
     public CategoryResponse create(
@@ -219,22 +98,18 @@ public class CategoryService {
 
         try {
 
-            validateRequest(request);
+            validateCreateRequest(request);
 
-            String name =
-                    request.getName().trim();
+            String name = request.getName().trim();
 
-            if (categoryRepository
-                    .existsByNameIgnoreCase(name)) {
+            if (categoryRepository.existsByNameIgnoreCase(name)) {
 
                 throw new IllegalArgumentException(
-                        "Category already exists: "
-                                + name
+                        "Category already exists: " + name
                 );
             }
 
-            Category category =
-                    new Category();
+            Category category = new Category();
 
             category.setName(name);
 
@@ -242,12 +117,9 @@ public class CategoryService {
                     request.getDescription().trim()
             );
 
-            String status =
-                    request.getStatus();
+            String status = request.getStatus();
 
-            if (status == null
-                    || status.isBlank()) {
-
+            if (status == null || status.isBlank()) {
                 status = "ACTIVE";
             }
 
@@ -262,20 +134,14 @@ public class CategoryService {
 
             return CategoryResponse.from(saved);
 
+        } catch (IllegalArgumentException e) {
+
+            log.error("Invalid category creation request", e);
+            throw e;
+
         } catch (Exception e) {
 
-            log.error(
-                    "Error creating category",
-                    e
-            );
-
-            /*
-             * Preserve the original exception if it is
-             * already meaningful.
-             */
-            if (e instanceof IllegalArgumentException) {
-                throw e;
-            }
+            log.error("Error creating category", e);
 
             throw new RuntimeException(
                     "Unable to create category: "
@@ -286,7 +152,7 @@ public class CategoryService {
     }
 
     // =========================
-    // UPDATE
+    // UPDATE CATEGORY
     // =========================
 
     public CategoryResponse update(
@@ -302,21 +168,31 @@ public class CategoryService {
                 );
             }
 
-            validateRequest(request);
+            validateUpdateRequest(request);
 
             Category category =
                     categoryRepository
                             .findById(id)
                             .orElseThrow(() ->
                                     new CategoryNotFoundException(
-                                            "Category not found: "
-                                                    + id
+                                            "Category not found: " + id
                                     )
                             );
 
-            category.setName(
-                    request.getName().trim()
-            );
+            String name = request.getName().trim();
+
+            /*
+             * Prevent duplicate category names.
+             */
+            if (categoryRepository
+                    .existsByNameIgnoreCaseAndIdNot(name, id)) {
+
+                throw new IllegalArgumentException(
+                        "Category already exists: " + name
+                );
+            }
+
+            category.setName(name);
 
             category.setDescription(
                     request.getDescription().trim()
@@ -338,6 +214,17 @@ public class CategoryService {
 
         } catch (CategoryNotFoundException e) {
 
+            log.error("Category not found: {}", id);
+            throw e;
+
+        } catch (IllegalArgumentException e) {
+
+            log.error(
+                    "Invalid category update request for {}",
+                    id,
+                    e
+            );
+
             throw e;
 
         } catch (Exception e) {
@@ -358,7 +245,7 @@ public class CategoryService {
     }
 
     // =========================
-    // DELETE
+    // DELETE CATEGORY
     // =========================
 
     public void delete(UUID id) {
@@ -377,8 +264,7 @@ public class CategoryService {
                             .findById(id)
                             .orElseThrow(() ->
                                     new CategoryNotFoundException(
-                                            "Category not found: "
-                                                    + id
+                                            "Category not found: " + id
                                     )
                             );
 
@@ -391,8 +277,7 @@ public class CategoryService {
                 );
             }
 
-            if (policyRepository
-                    .existsByCategoryId(id)) {
+            if (policyRepository.existsByCategoryId(id)) {
 
                 throw new IllegalStateException(
                         "Category cannot be deleted because "
@@ -403,6 +288,18 @@ public class CategoryService {
             categoryRepository.delete(category);
 
         } catch (CategoryNotFoundException e) {
+
+            log.error("Category not found: {}", id);
+            throw e;
+
+        } catch (IllegalArgumentException |
+                 IllegalStateException e) {
+
+            log.error(
+                    "Category deletion failed for {}",
+                    id,
+                    e
+            );
 
             throw e;
 
@@ -423,7 +320,11 @@ public class CategoryService {
         }
     }
 
-    private void validateRequest(
+    // =========================
+    // VALIDATION
+    // =========================
+
+    private void validateCreateRequest(
             CategoryCreateRequest request) {
 
         if (request == null) {
@@ -439,7 +340,7 @@ public class CategoryService {
         );
     }
 
-    private void validateRequest(
+    private void validateUpdateRequest(
             CategoryUpdateRequest request) {
 
         if (request == null) {
@@ -466,8 +367,7 @@ public class CategoryService {
             );
         }
 
-        if (description == null
-                || description.isBlank()) {
+        if (description == null || description.isBlank()) {
 
             throw new IllegalArgumentException(
                     "Category description is required."
@@ -489,8 +389,7 @@ public class CategoryService {
         }
     }
 
-    private void validateStatus(
-            String status) {
+    private void validateStatus(String status) {
 
         if (!"ACTIVE".equals(status)
                 && !"INACTIVE".equals(status)) {
@@ -514,12 +413,13 @@ public class CategoryService {
                 : current.getMessage();
     }
 }
+
+
+
 package com.insurewise.policy.service;
 
-import com.insurewise.policy.dto.request.CreatePolicyRequest;
 import com.insurewise.policy.dto.request.PolicyCreateRequest;
 import com.insurewise.policy.dto.request.PolicyUpdateRequest;
-import com.insurewise.policy.dto.request.UpdatePolicyRequest;
 import com.insurewise.policy.dto.response.PolicyResponse;
 import com.insurewise.policy.entity.Category;
 import com.insurewise.policy.entity.Policy;
@@ -542,7 +442,6 @@ import java.util.UUID;
 public class PolicyService {
 
     private final PolicyRepository policyRepository;
-
     private final CategoryRepository categoryRepository;
 
     public PolicyService(
@@ -554,7 +453,7 @@ public class PolicyService {
     }
 
     // =========================
-    // GET ALL POLICIES
+    // GET ALL
     // =========================
 
     public List<PolicyResponse> getAll() {
@@ -569,10 +468,7 @@ public class PolicyService {
 
         } catch (Exception e) {
 
-            log.error(
-                    "Error fetching policies",
-                    e
-            );
+            log.error("Error fetching policies", e);
 
             throw new RuntimeException(
                     "Unable to fetch policies: "
@@ -676,7 +572,7 @@ public class PolicyService {
     }
 
     // =========================
-    // ADD POLICY
+    // CREATE POLICY
     // =========================
 
     public PolicyResponse create(
@@ -684,7 +580,7 @@ public class PolicyService {
 
         try {
 
-            validateRequest(request);
+            validateCreateRequest(request);
 
             Category category =
                     categoryRepository
@@ -707,11 +603,7 @@ public class PolicyService {
                 );
             }
 
-            /*
-             * Always start with PENDING.
-             */
-            Policy policy =
-                    new Policy();
+            Policy policy = new Policy();
 
             policy.setName(
                     request.getName().trim()
@@ -731,6 +623,9 @@ public class PolicyService {
                     request.getDurationLabel().trim()
             );
 
+            /*
+             * Newly created policy requires approval.
+             */
             policy.setStatus("PENDING");
 
             Policy saved =
@@ -740,13 +635,28 @@ public class PolicyService {
 
         } catch (CategoryNotFoundException e) {
 
+            log.error(
+                    "Category not found while creating policy",
+                    e
+            );
+
             throw e;
 
         } catch (PolicyStateException e) {
 
+            log.error(
+                    "Invalid policy state while creating policy",
+                    e
+            );
+
             throw e;
 
         } catch (IllegalArgumentException e) {
+
+            log.error(
+                    "Invalid policy creation request",
+                    e
+            );
 
             throw e;
 
@@ -777,7 +687,7 @@ public class PolicyService {
 
             validateId(id);
 
-            validateRequest(request);
+            validateUpdateRequest(request);
 
             Policy policy =
                     policyRepository
@@ -828,7 +738,7 @@ public class PolicyService {
             );
 
             /*
-             * Editing requires approval again.
+             * After editing, approval is required again.
              */
             policy.setStatus("PENDING");
 
@@ -839,17 +749,39 @@ public class PolicyService {
 
         } catch (PolicyNotFoundException e) {
 
+            log.error(
+                    "Policy not found: {}",
+                    id
+            );
+
             throw e;
 
         } catch (CategoryNotFoundException e) {
+
+            log.error(
+                    "Category not found while updating policy",
+                    e
+            );
 
             throw e;
 
         } catch (PolicyStateException e) {
 
+            log.error(
+                    "Invalid policy state for {}",
+                    id,
+                    e
+            );
+
             throw e;
 
         } catch (IllegalArgumentException e) {
+
+            log.error(
+                    "Invalid policy update request for {}",
+                    id,
+                    e
+            );
 
             throw e;
 
@@ -871,7 +803,7 @@ public class PolicyService {
     }
 
     // =========================
-    // APPROVE POLICY
+    // APPROVE
     // =========================
 
     public PolicyResponse approve(UUID id) {
@@ -916,11 +848,14 @@ public class PolicyService {
 
             return PolicyResponse.from(approved);
 
-        } catch (PolicyNotFoundException e) {
+        } catch (PolicyNotFoundException |
+                 PolicyStateException e) {
 
-            throw e;
-
-        } catch (PolicyStateException e) {
+            log.error(
+                    "Policy approval failed for {}",
+                    id,
+                    e
+            );
 
             throw e;
 
@@ -942,7 +877,7 @@ public class PolicyService {
     }
 
     // =========================
-    // REJECT POLICY
+    // REJECT
     // =========================
 
     public PolicyResponse reject(UUID id) {
@@ -978,11 +913,14 @@ public class PolicyService {
 
             return PolicyResponse.from(rejected);
 
-        } catch (PolicyNotFoundException e) {
+        } catch (PolicyNotFoundException |
+                 PolicyStateException e) {
 
-            throw e;
-
-        } catch (PolicyStateException e) {
+            log.error(
+                    "Policy rejection failed for {}",
+                    id,
+                    e
+            );
 
             throw e;
 
@@ -1004,7 +942,7 @@ public class PolicyService {
     }
 
     // =========================
-    // DELETE POLICY
+    // DELETE
     // =========================
 
     public void delete(UUID id) {
@@ -1026,6 +964,11 @@ public class PolicyService {
             policyRepository.delete(policy);
 
         } catch (PolicyNotFoundException e) {
+
+            log.error(
+                    "Policy not found: {}",
+                    id
+            );
 
             throw e;
 
@@ -1050,8 +993,8 @@ public class PolicyService {
     // VALIDATION
     // =========================
 
-    private void validateRequest(
-            CreatePolicyRequest request) {
+    private void validateCreateRequest(
+            PolicyCreateRequest request) {
 
         if (request == null) {
 
@@ -1069,8 +1012,8 @@ public class PolicyService {
         );
     }
 
-    private void validateRequest(
-            UpdatePolicyRequest request) {
+    private void validateUpdateRequest(
+            PolicyUpdateRequest request) {
 
         if (request == null) {
 
@@ -1116,8 +1059,7 @@ public class PolicyService {
             );
         }
 
-        if (coverage.compareTo(
-                BigDecimal.ZERO) <= 0) {
+        if (coverage.compareTo(BigDecimal.ZERO) <= 0) {
 
             throw new IllegalArgumentException(
                     "Coverage amount must be greater than zero."
@@ -1131,16 +1073,14 @@ public class PolicyService {
             );
         }
 
-        if (premium.compareTo(
-                BigDecimal.ZERO) <= 0) {
+        if (premium.compareTo(BigDecimal.ZERO) <= 0) {
 
             throw new IllegalArgumentException(
                     "Premium amount must be greater than zero."
             );
         }
 
-        if (duration == null
-                || duration.isBlank()) {
+        if (duration == null || duration.isBlank()) {
 
             throw new IllegalArgumentException(
                     "Policy duration is required."
