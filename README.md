@@ -1,7 +1,124 @@
+package com.insurewise.policy.controller;
+
+import com.insurewise.policy.dto.request.CategoryCreateRequest;
+import com.insurewise.policy.dto.request.CategoryUpdateRequest;
+import com.insurewise.policy.service.CategoryService;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/categories")
+public class CategoryController {
+
+    private final CategoryService categoryService;
+
+    public CategoryController(
+            CategoryService categoryService) {
+
+        this.categoryService = categoryService;
+    }
+
+    @GetMapping
+    public ResponseEntity<?> getAll() {
+
+        try {
+
+            return ResponseEntity.ok(
+                    categoryService.getAll()
+            );
+
+        } catch (Exception e) {
+
+            throw e;
+        }
+    }
+
+    @GetMapping("/active")
+    public ResponseEntity<?> getActive() {
+
+        try {
+
+            return ResponseEntity.ok(
+                    categoryService.getActive()
+            );
+
+        } catch (Exception e) {
+
+            throw e;
+        }
+    }
+
+    @PostMapping
+    @PreAuthorize("hasRole('STAFF')")
+    public ResponseEntity<?> create(
+            @RequestBody
+            CategoryCreateRequest request) {
+
+        try {
+
+            return ResponseEntity
+                    .status(HttpStatus.CREATED)
+                    .body(
+                            categoryService.create(request)
+                    );
+
+        } catch (Exception e) {
+
+            throw e;
+        }
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('STAFF')")
+    public ResponseEntity<?> update(
+            @PathVariable UUID id,
+            @RequestBody
+            CategoryUpdateRequest request) {
+
+        try {
+
+            return ResponseEntity.ok(
+                    categoryService.update(
+                            id,
+                            request
+                    )
+            );
+
+        } catch (Exception e) {
+
+            throw e;
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('STAFF')")
+    public ResponseEntity<?> delete(
+            @PathVariable UUID id) {
+
+        try {
+
+            categoryService.delete(id);
+
+            return ResponseEntity
+                    .noContent()
+                    .build();
+
+        } catch (Exception e) {
+
+            throw e;
+        }
+    }
+}
+
 package com.insurewise.policy.service;
 
-import com.insurewise.policy.dto.request.CreateCategoryRequest;
-import com.insurewise.policy.dto.request.UpdateCategoryRequest;
+import com.insurewise.policy.dto.request.CategoryCreateRequest;
+import com.insurewise.policy.dto.request.CategoryCreateRequest;
 import com.insurewise.policy.dto.response.CategoryResponse;
 import com.insurewise.policy.entity.Category;
 import com.insurewise.policy.exception.CategoryNotFoundException;
@@ -98,7 +215,7 @@ public class CategoryService {
     // =========================
 
     public CategoryResponse create(
-            CreateCategoryRequest request) {
+            CategoryCreateRequest request) {
 
         try {
 
@@ -174,7 +291,7 @@ public class CategoryService {
 
     public CategoryResponse update(
             UUID id,
-            UpdateCategoryRequest request) {
+            CategoryUpdateRequest request) {
 
         try {
 
@@ -307,7 +424,7 @@ public class CategoryService {
     }
 
     private void validateRequest(
-            CreateCategoryRequest request) {
+            CategoryCreateRequest request) {
 
         if (request == null) {
 
@@ -323,7 +440,7 @@ public class CategoryService {
     }
 
     private void validateRequest(
-            UpdateCategoryRequest request) {
+            CategoryUpdateRequest request) {
 
         if (request == null) {
 
@@ -397,13 +514,11 @@ public class CategoryService {
                 : current.getMessage();
     }
 }
-
-
-
-
 package com.insurewise.policy.service;
 
 import com.insurewise.policy.dto.request.CreatePolicyRequest;
+import com.insurewise.policy.dto.request.PolicyCreateRequest;
+import com.insurewise.policy.dto.request.PolicyUpdateRequest;
 import com.insurewise.policy.dto.request.UpdatePolicyRequest;
 import com.insurewise.policy.dto.response.PolicyResponse;
 import com.insurewise.policy.entity.Category;
@@ -565,7 +680,7 @@ public class PolicyService {
     // =========================
 
     public PolicyResponse create(
-            CreatePolicyRequest request) {
+            PolicyCreateRequest request) {
 
         try {
 
@@ -656,7 +771,7 @@ public class PolicyService {
 
     public PolicyResponse update(
             UUID id,
-            UpdatePolicyRequest request) {
+            PolicyUpdateRequest request) {
 
         try {
 
@@ -1054,346 +1169,5 @@ public class PolicyService {
         return current.getMessage() == null
                 ? current.getClass().getSimpleName()
                 : current.getMessage();
-    }
-}
-
-
-
-package com.insurewise.policy.controller;
-
-import com.insurewise.policy.dto.request.CreateCategoryRequest;
-import com.insurewise.policy.dto.request.UpdateCategoryRequest;
-import com.insurewise.policy.service.CategoryService;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.UUID;
-
-@RestController
-@RequestMapping("/api/categories")
-public class CategoryController {
-
-    private final CategoryService categoryService;
-
-    public CategoryController(
-            CategoryService categoryService) {
-
-        this.categoryService = categoryService;
-    }
-
-    @GetMapping
-    public ResponseEntity<?> getAll() {
-
-        try {
-
-            return ResponseEntity.ok(
-                    categoryService.getAll()
-            );
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-
-    @GetMapping("/active")
-    public ResponseEntity<?> getActive() {
-
-        try {
-
-            return ResponseEntity.ok(
-                    categoryService.getActive()
-            );
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-
-    @PostMapping
-    @PreAuthorize("hasRole('STAFF')")
-    public ResponseEntity<?> create(
-            @RequestBody
-            CreateCategoryRequest request) {
-
-        try {
-
-            return ResponseEntity
-                    .status(HttpStatus.CREATED)
-                    .body(
-                            categoryService.create(request)
-                    );
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-
-    @PutMapping("/{id}")
-    @PreAuthorize("hasRole('STAFF')")
-    public ResponseEntity<?> update(
-            @PathVariable UUID id,
-            @RequestBody
-            UpdateCategoryRequest request) {
-
-        try {
-
-            return ResponseEntity.ok(
-                    categoryService.update(
-                            id,
-                            request
-                    )
-            );
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('STAFF')")
-    public ResponseEntity<?> delete(
-            @PathVariable UUID id) {
-
-        try {
-
-            categoryService.delete(id);
-
-            return ResponseEntity
-                    .noContent()
-                    .build();
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-}
-
-
-
-
-package com.insurewise.policy.controller;
-
-import com.insurewise.policy.dto.request.CreatePolicyRequest;
-import com.insurewise.policy.dto.request.UpdatePolicyRequest;
-import com.insurewise.policy.service.PolicyService;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.UUID;
-
-@RestController
-@RequestMapping("/api/policies")
-public class PolicyController {
-
-    private final PolicyService policyService;
-
-    public PolicyController(
-            PolicyService policyService) {
-
-        this.policyService = policyService;
-    }
-
-    // =========================
-    // GET ALL
-    // =========================
-
-    @GetMapping
-    public ResponseEntity<?> getAll() {
-
-        try {
-
-            return ResponseEntity.ok(
-                    policyService.getAll()
-            );
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-
-    // =========================
-    // GET ACTIVE
-    // =========================
-
-    @GetMapping("/active")
-    public ResponseEntity<?> getActive() {
-
-        try {
-
-            return ResponseEntity.ok(
-                    policyService.getActive()
-            );
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-
-    // =========================
-    // GET PENDING
-    // =========================
-
-    @GetMapping("/pending")
-    @PreAuthorize("hasRole('STAFF')")
-    public ResponseEntity<?> getPending() {
-
-        try {
-
-            return ResponseEntity.ok(
-                    policyService.getPending()
-            );
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-
-    // =========================
-    // GET REJECTED
-    // =========================
-
-    @GetMapping("/rejected")
-    @PreAuthorize("hasRole('STAFF')")
-    public ResponseEntity<?> getRejected() {
-
-        try {
-
-            return ResponseEntity.ok(
-                    policyService.getRejected()
-            );
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-
-    // =========================
-    // ADD POLICY
-    // =========================
-
-    @PostMapping
-    @PreAuthorize("hasRole('STAFF')")
-    public ResponseEntity<?> create(
-            @RequestBody
-            CreatePolicyRequest request) {
-
-        try {
-
-            return ResponseEntity
-                    .status(HttpStatus.CREATED)
-                    .body(
-                            policyService.create(request)
-                    );
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-
-    // =========================
-    // UPDATE POLICY
-    // =========================
-
-    @PutMapping("/{id}")
-    @PreAuthorize("hasRole('STAFF')")
-    public ResponseEntity<?> update(
-            @PathVariable UUID id,
-            @RequestBody
-            UpdatePolicyRequest request) {
-
-        try {
-
-            return ResponseEntity.ok(
-                    policyService.update(
-                            id,
-                            request
-                    )
-            );
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-
-    // =========================
-    // APPROVE
-    // =========================
-
-    @PostMapping("/{id}/approve")
-    @PreAuthorize("hasRole('STAFF')")
-    public ResponseEntity<?> approve(
-            @PathVariable UUID id) {
-
-        try {
-
-            return ResponseEntity.ok(
-                    policyService.approve(id)
-            );
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-
-    // =========================
-    // REJECT
-    // =========================
-
-    @PostMapping("/{id}/reject")
-    @PreAuthorize("hasRole('STAFF')")
-    public ResponseEntity<?> reject(
-            @PathVariable UUID id) {
-
-        try {
-
-            return ResponseEntity.ok(
-                    policyService.reject(id)
-            );
-
-        } catch (Exception e) {
-
-            throw e;
-        }
-    }
-
-    // =========================
-    // DELETE
-    // =========================
-
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('STAFF')")
-    public ResponseEntity<?> delete(
-            @PathVariable UUID id) {
-
-        try {
-
-            policyService.delete(id);
-
-            return ResponseEntity
-                    .noContent()
-                    .build();
-
-        } catch (Exception e) {
-
-            throw e;
-        }
     }
 }
