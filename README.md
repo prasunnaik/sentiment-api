@@ -1,65 +1,97 @@
-2026-09-15T12:10:04.044+05:30  INFO 53104 --- [insurewise-service] [           main] com.insurewise.InsurewiseApplication     : Starting InsurewiseApplication using Java 21.0.12 with PID 53104 (C:\Users\psumans\CAP-Code\insurewise-cap-angular-be\insurewise-service\target\classes started by psumans in C:\Users\psumans\CAP-Code)
-2026-09-15T12:10:04.046+05:30  INFO 53104 --- [insurewise-service] [           main] com.insurewise.InsurewiseApplication     : No active profile set, falling back to 1 default profile: "default"
-2026-09-15T12:10:05.385+05:30  WARN 53104 --- [insurewise-service] [           main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanDefinitionStoreException: Failed to read candidate component class: file [C:\Users\psumans\CAP-Code\insurewise-cap-angular-be\insurewise-service\target\classes\com\insurewise\auth\config\AuthBeansConfig.class]
-2026-09-15T12:10:05.400+05:30  INFO 53104 --- [insurewise-service] [           main] .s.b.a.l.ConditionEvaluationReportLogger : 
+PS C:\Users\psumans\CAP-Code\insurewise-cap-angular-be\insurewise-service> Get-Content .\classpath.txt | Select-String "aws-java-sdk-core"
 
-Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
-2026-09-15T12:10:05.437+05:30 ERROR 53104 --- [insurewise-service] [           main] o.s.boot.SpringApplication               : Application run failed
-
-org.springframework.beans.factory.BeanDefinitionStoreException: Failed to read candidate component class: file [C:\Users\psumans\CAP-Code\insurewise-cap-angular-be\insurewise-service\target\classes\com\insurewise\auth\config\AuthBeansConfig.class]
-	at org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider.scanCandidateComponents(ClassPathScanningCandidateComponentProvider.java:510) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider.findCandidateComponents(ClassPathScanningCandidateComponentProvider.java:351) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.boot.context.properties.ConfigurationPropertiesScanRegistrar.scan(ConfigurationPropertiesScanRegistrar.java:85) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.context.properties.ConfigurationPropertiesScanRegistrar.registerBeanDefinitions(ConfigurationPropertiesScanRegistrar.java:62) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.context.annotation.ImportBeanDefinitionRegistrar.registerBeanDefinitions(ImportBeanDefinitionRegistrar.java:86) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.annotation.ConfigurationClassBeanDefinitionReader.lambda$loadBeanDefinitionsFromRegistrars$1(ConfigurationClassBeanDefinitionReader.java:376) ~[spring-context-6.1.6.jar:6.1.6]
-	at java.base/java.util.LinkedHashMap.forEach(LinkedHashMap.java:986) ~[na:na]
-	at org.springframework.context.annotation.ConfigurationClassBeanDefinitionReader.loadBeanDefinitionsFromRegistrars(ConfigurationClassBeanDefinitionReader.java:375) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.annotation.ConfigurationClassBeanDefinitionReader.loadBeanDefinitionsForConfigurationClass(ConfigurationClassBeanDefinitionReader.java:148) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.annotation.ConfigurationClassBeanDefinitionReader.loadBeanDefinitions(ConfigurationClassBeanDefinitionReader.java:120) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.annotation.ConfigurationClassPostProcessor.processConfigBeanDefinitions(ConfigurationClassPostProcessor.java:428) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.annotation.ConfigurationClassPostProcessor.postProcessBeanDefinitionRegistry(ConfigurationClassPostProcessor.java:289) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.support.PostProcessorRegistrationDelegate.invokeBeanDefinitionRegistryPostProcessors(PostProcessorRegistrationDelegate.java:349) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.support.PostProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors(PostProcessorRegistrationDelegate.java:118) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.support.AbstractApplicationContext.invokeBeanFactoryPostProcessors(AbstractApplicationContext.java:788) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:606) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:754) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:456) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:334) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1343) ~[spring-boot-3.2.5.jar:3.2.5]
-	at com.insurewise.InsurewiseApplication.main(InsurewiseApplication.java:13) ~[classes/:na]
-Caused by: java.lang.IllegalStateException: Failed to introspect Class [com.insurewise.framework.s3.config.S3AutoConfiguration] from ClassLoader [jdk.internal.loader.ClassLoaders$AppClassLoader@76ed5528]
-	at org.springframework.util.ReflectionUtils.getDeclaredMethods(ReflectionUtils.java:483) ~[spring-core-6.1.6.jar:6.1.6]
-	at org.springframework.util.ReflectionUtils.doWithMethods(ReflectionUtils.java:360) ~[spring-core-6.1.6.jar:6.1.6]
-	at org.springframework.util.ReflectionUtils.getUniqueDeclaredMethods(ReflectionUtils.java:417) ~[spring-core-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.lambda$getTypeForFactoryMethod$1(AbstractAutowireCapableBeanFactory.java:750) ~[spring-beans-6.1.6.jar:6.1.6]
-	at java.base/java.util.concurrent.ConcurrentHashMap.computeIfAbsent(ConcurrentHashMap.java:1708) ~[na:na]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.getTypeForFactoryMethod(AbstractAutowireCapableBeanFactory.java:749) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.determineTargetType(AbstractAutowireCapableBeanFactory.java:682) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.predictBeanType(AbstractAutowireCapableBeanFactory.java:653) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.AbstractBeanFactory.isFactoryBean(AbstractBeanFactory.java:1676) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doGetBeanNamesForType(DefaultListableBeanFactory.java:562) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.getBeanNamesForType(DefaultListableBeanFactory.java:534) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.getBeansOfType(DefaultListableBeanFactory.java:661) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.getBeansOfType(DefaultListableBeanFactory.java:653) ~[spring-beans-6.1.6.jar:6.1.6]
-	at org.springframework.boot.context.TypeExcludeFilter.getDelegates(TypeExcludeFilter.java:77) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.boot.context.TypeExcludeFilter.match(TypeExcludeFilter.java:65) ~[spring-boot-3.2.5.jar:3.2.5]
-	at org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider.isCandidateComponent(ClassPathScanningCandidateComponentProvider.java:541) ~[spring-context-6.1.6.jar:6.1.6]
-	at org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider.scanCandidateComponents(ClassPathScanningCandidateComponentProvider.java:471) ~[spring-context-6.1.6.jar:6.1.6]
-	... 22 common frames omitted
-Caused by: java.lang.NoClassDefFoundError: com/amazonaws/auth/AWSCredentials
-	at java.base/java.lang.Class.getDeclaredMethods0(Native Method) ~[na:na]
-	at java.base/java.lang.Class.privateGetDeclaredMethods(Class.java:3580) ~[na:na]
-	at java.base/java.lang.Class.getDeclaredMethods(Class.java:2678) ~[na:na]
-	at org.springframework.util.ReflectionUtils.getDeclaredMethods(ReflectionUtils.java:465) ~[spring-core-6.1.6.jar:6.1.6]
-	... 38 common frames omitted
-Caused by: java.lang.ClassNotFoundException: com.amazonaws.auth.AWSCredentials
-	at java.base/jdk.internal.loader.BuiltinClassLoader.loadClass(BuiltinClassLoader.java:641) ~[na:na]
-	at java.base/jdk.internal.loader.ClassLoaders$AppClassLoader.loadClass(ClassLoaders.java:188) ~[na:na]
-	at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:526) ~[na:na]
-	... 42 common frames omitted
-
-
-Process finished with exit code 1
+C:\Users\psumans\.m2\repository\org\springframework\boot\spring-boot-starter-web\3.2.5\spring-boot-starter-web-3.2.5.jar;C:\Users\psumans\.m2\repos
+itory\org\springframework\boot\spring-boot-starter\3.2.5\spring-boot-starter-3.2.5.jar;C:\Users\psumans\.m2\repository\org\springframework\boot\spr
+ing-boot\3.2.5\spring-boot-3.2.5.jar;C:\Users\psumans\.m2\repository\org\springframework\boot\spring-boot-autoconfigure\3.2.5\spring-boot-autoconfi
+gure-3.2.5.jar;C:\Users\psumans\.m2\repository\org\springframework\boot\spring-boot-starter-logging\3.2.5\spring-boot-starter-logging-3.2.5.jar;C:\
+Users\psumans\.m2\repository\ch\qos\logback\logback-classic\1.4.14\logback-classic-1.4.14.jar;C:\Users\psumans\.m2\repository\ch\qos\logback\logbac
+k-core\1.4.14\logback-core-1.4.14.jar;C:\Users\psumans\.m2\repository\org\apache\logging\log4j\log4j-to-slf4j\2.21.1\log4j-to-slf4j-2.21.1.jar;C:\U
+sers\psumans\.m2\repository\org\apache\logging\log4j\log4j-api\2.21.1\log4j-api-2.21.1.jar;C:\Users\psumans\.m2\repository\org\slf4j\jul-to-slf4j\2
+.0.13\jul-to-slf4j-2.0.13.jar;C:\Users\psumans\.m2\repository\jakarta\annotation\jakarta.annotation-api\2.1.1\jakarta.annotation-api-2.1.1.jar;C:\U
+sers\psumans\.m2\repository\org\yaml\snakeyaml\2.2\snakeyaml-2.2.jar;C:\Users\psumans\.m2\repository\org\springframework\boot\spring-boot-starter-j
+son\3.2.5\spring-boot-starter-json-3.2.5.jar;C:\Users\psumans\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jdk8\2.15.4\jackson-da
+tatype-jdk8-2.15.4.jar;C:\Users\psumans\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jsr310\2.15.4\jackson-datatype-jsr310-2.15.4
+.jar;C:\Users\psumans\.m2\repository\com\fasterxml\jackson\module\jackson-module-parameter-names\2.15.4\jackson-module-parameter-names-2.15.4.jar;C
+:\Users\psumans\.m2\repository\org\springframework\boot\spring-boot-starter-tomcat\3.2.5\spring-boot-starter-tomcat-3.2.5.jar;C:\Users\psumans\.m2\
+repository\org\apache\tomcat\embed\tomcat-embed-core\10.1.20\tomcat-embed-core-10.1.20.jar;C:\Users\psumans\.m2\repository\org\apache\tomcat\embed\
+tomcat-embed-websocket\10.1.20\tomcat-embed-websocket-10.1.20.jar;C:\Users\psumans\.m2\repository\org\springframework\spring-web\6.1.6\spring-web-6
+.1.6.jar;C:\Users\psumans\.m2\repository\org\springframework\spring-beans\6.1.6\spring-beans-6.1.6.jar;C:\Users\psumans\.m2\repository\org\springfr
+amework\spring-webmvc\6.1.6\spring-webmvc-6.1.6.jar;C:\Users\psumans\.m2\repository\org\springframework\spring-context\6.1.6\spring-context-6.1.6.j
+ar;C:\Users\psumans\.m2\repository\org\springframework\spring-expression\6.1.6\spring-expression-6.1.6.jar;C:\Users\psumans\.m2\repository\org\spri
+ngframework\boot\spring-boot-starter-data-jpa\3.2.5\spring-boot-starter-data-jpa-3.2.5.jar;C:\Users\psumans\.m2\repository\org\springframework\boot
+\spring-boot-starter-aop\3.2.5\spring-boot-starter-aop-3.2.5.jar;C:\Users\psumans\.m2\repository\org\aspectj\aspectjweaver\1.9.22\aspectjweaver-1.9
+.22.jar;C:\Users\psumans\.m2\repository\org\springframework\boot\spring-boot-starter-jdbc\3.2.5\spring-boot-starter-jdbc-3.2.5.jar;C:\Users\psumans
+\.m2\repository\com\zaxxer\HikariCP\5.0.1\HikariCP-5.0.1.jar;C:\Users\psumans\.m2\repository\org\springframework\spring-jdbc\6.1.6\spring-jdbc-6.1.
+6.jar;C:\Users\psumans\.m2\repository\org\hibernate\orm\hibernate-core\6.4.4.Final\hibernate-core-6.4.4.Final.jar;C:\Users\psumans\.m2\repository\j
+akarta\persistence\jakarta.persistence-api\3.1.0\jakarta.persistence-api-3.1.0.jar;C:\Users\psumans\.m2\repository\jakarta\transaction\jakarta.tran
+saction-api\2.0.1\jakarta.transaction-api-2.0.1.jar;C:\Users\psumans\.m2\repository\org\jboss\logging\jboss-logging\3.5.3.Final\jboss-logging-3.5.3
+.Final.jar;C:\Users\psumans\.m2\repository\org\hibernate\common\hibernate-commons-annotations\6.0.6.Final\hibernate-commons-annotations-6.0.6.Final
+.jar;C:\Users\psumans\.m2\repository\io\smallrye\jandex\3.1.2\jandex-3.1.2.jar;C:\Users\psumans\.m2\repository\com\fasterxml\classmate\1.6.0\classm
+ate-1.6.0.jar;C:\Users\psumans\.m2\repository\net\bytebuddy\byte-buddy\1.14.13\byte-buddy-1.14.13.jar;C:\Users\psumans\.m2\repository\org\glassfish
+\jaxb\jaxb-runtime\4.0.5\jaxb-runtime-4.0.5.jar;C:\Users\psumans\.m2\repository\org\glassfish\jaxb\jaxb-core\4.0.5\jaxb-core-4.0.5.jar;C:\Users\psu
+mans\.m2\repository\org\eclipse\angus\angus-activation\2.0.2\angus-activation-2.0.2.jar;C:\Users\psumans\.m2\repository\org\glassfish\jaxb\txw2\4.0
+.5\txw2-4.0.5.jar;C:\Users\psumans\.m2\repository\com\sun\istack\istack-commons-runtime\4.1.2\istack-commons-runtime-4.1.2.jar;C:\Users\psumans\.m2
+\repository\jakarta\inject\jakarta.inject-api\2.0.1\jakarta.inject-api-2.0.1.jar;C:\Users\psumans\.m2\repository\org\antlr\antlr4-runtime\4.13.0\an
+tlr4-runtime-4.13.0.jar;C:\Users\psumans\.m2\repository\org\springframework\data\spring-data-jpa\3.2.5\spring-data-jpa-3.2.5.jar;C:\Users\psumans\.
+m2\repository\org\springframework\data\spring-data-commons\3.2.5\spring-data-commons-3.2.5.jar;C:\Users\psumans\.m2\repository\org\springframework\
+spring-orm\6.1.6\spring-orm-6.1.6.jar;C:\Users\psumans\.m2\repository\org\springframework\spring-tx\6.1.6\spring-tx-6.1.6.jar;C:\Users\psumans\.m2\
+repository\org\slf4j\slf4j-api\2.0.13\slf4j-api-2.0.13.jar;C:\Users\psumans\.m2\repository\org\springframework\spring-aspects\6.1.6\spring-aspects-
+6.1.6.jar;C:\Users\psumans\.m2\repository\org\springframework\boot\spring-boot-starter-validation\3.2.5\spring-boot-starter-validation-3.2.5.jar;C:
+\Users\psumans\.m2\repository\org\apache\tomcat\embed\tomcat-embed-el\10.1.20\tomcat-embed-el-10.1.20.jar;C:\Users\psumans\.m2\repository\org\hiber
+nate\validator\hibernate-validator\8.0.1.Final\hibernate-validator-8.0.1.Final.jar;C:\Users\psumans\.m2\repository\jakarta\validation\jakarta.valid
+ation-api\3.0.2\jakarta.validation-api-3.0.2.jar;C:\Users\psumans\.m2\repository\org\springframework\boot\spring-boot-starter-actuator\3.2.5\spring
+-boot-starter-actuator-3.2.5.jar;C:\Users\psumans\.m2\repository\org\springframework\boot\spring-boot-actuator-autoconfigure\3.2.5\spring-boot-actu
+ator-autoconfigure-3.2.5.jar;C:\Users\psumans\.m2\repository\org\springframework\boot\spring-boot-actuator\3.2.5\spring-boot-actuator-3.2.5.jar;C:\
+Users\psumans\.m2\repository\io\micrometer\micrometer-observation\1.12.5\micrometer-observation-1.12.5.jar;C:\Users\psumans\.m2\repository\io\micro
+meter\micrometer-commons\1.12.5\micrometer-commons-1.12.5.jar;C:\Users\psumans\.m2\repository\io\micrometer\micrometer-jakarta9\1.12.5\micrometer-j
+akarta9-1.12.5.jar;C:\Users\psumans\.m2\repository\io\micrometer\micrometer-core\1.12.5\micrometer-core-1.12.5.jar;C:\Users\psumans\.m2\repository\
+org\hdrhistogram\HdrHistogram\2.1.12\HdrHistogram-2.1.12.jar;C:\Users\psumans\.m2\repository\org\latencyutils\LatencyUtils\2.0.3\LatencyUtils-2.0.3
+.jar;C:\Users\psumans\.m2\repository\org\springframework\boot\spring-boot-starter-security\3.2.5\spring-boot-starter-security-3.2.5.jar;C:\Users\ps
+umans\.m2\repository\org\springframework\spring-aop\6.1.6\spring-aop-6.1.6.jar;C:\Users\psumans\.m2\repository\org\springframework\security\spring-
+security-config\6.2.4\spring-security-config-6.2.4.jar;C:\Users\psumans\.m2\repository\org\springframework\security\spring-security-web\6.2.4\sprin
+g-security-web-6.2.4.jar;C:\Users\psumans\.m2\repository\org\postgresql\postgresql\42.6.2\postgresql-42.6.2.jar;C:\Users\psumans\.m2\repository\org
+\checkerframework\checker-qual\3.31.0\checker-qual-3.31.0.jar;C:\Users\psumans\.m2\repository\org\flywaydb\flyway-core\9.22.3\flyway-core-9.22.3.ja
+r;C:\Users\psumans\.m2\repository\com\fasterxml\jackson\dataformat\jackson-dataformat-toml\2.15.4\jackson-dataformat-toml-2.15.4.jar;C:\Users\psuma
+ns\.m2\repository\com\fasterxml\jackson\core\jackson-core\2.15.4\jackson-core-2.15.4.jar;C:\Users\psumans\.m2\repository\com\google\code\gson\gson\
+2.10.1\gson-2.10.1.jar;C:\Users\psumans\.m2\repository\io\jsonwebtoken\jjwt-api\0.12.5\jjwt-api-0.12.5.jar;C:\Users\psumans\.m2\repository\io\jsonw
+ebtoken\jjwt-impl\0.12.5\jjwt-impl-0.12.5.jar;C:\Users\psumans\.m2\repository\io\jsonwebtoken\jjwt-jackson\0.12.5\jjwt-jackson-0.12.5.jar;C:\Users\
+psumans\.m2\repository\com\fasterxml\jackson\core\jackson-databind\2.15.4\jackson-databind-2.15.4.jar;C:\Users\psumans\.m2\repository\com\fasterxml
+\jackson\core\jackson-annotations\2.15.4\jackson-annotations-2.15.4.jar;C:\Users\psumans\.m2\repository\org\projectlombok\lombok\1.18.32\lombok-1.1
+8.32.jar;C:\Users\psumans\.m2\repository\org\springdoc\springdoc-openapi-starter-webmvc-ui\2.5.0\springdoc-openapi-starter-webmvc-ui-2.5.0.jar;C:\U
+sers\psumans\.m2\repository\org\springdoc\springdoc-openapi-starter-webmvc-api\2.5.0\springdoc-openapi-starter-webmvc-api-2.5.0.jar;C:\Users\psuman
+s\.m2\repository\org\springdoc\springdoc-openapi-starter-common\2.5.0\springdoc-openapi-starter-common-2.5.0.jar;C:\Users\psumans\.m2\repository\io
+\swagger\core\v3\swagger-core-jakarta\2.2.21\swagger-core-jakarta-2.2.21.jar;C:\Users\psumans\.m2\repository\org\apache\commons\commons-lang3\3.13.
+0\commons-lang3-3.13.0.jar;C:\Users\psumans\.m2\repository\io\swagger\core\v3\swagger-annotations-jakarta\2.2.21\swagger-annotations-jakarta-2.2.21
+.jar;C:\Users\psumans\.m2\repository\io\swagger\core\v3\swagger-models-jakarta\2.2.21\swagger-models-jakarta-2.2.21.jar;C:\Users\psumans\.m2\reposi
+tory\com\fasterxml\jackson\dataformat\jackson-dataformat-yaml\2.15.4\jackson-dataformat-yaml-2.15.4.jar;C:\Users\psumans\.m2\repository\org\webjars
+\swagger-ui\5.13.0\swagger-ui-5.13.0.jar;C:\Users\psumans\.m2\repository\com\insurewise\framework\s3-file-storage\1.0.0-SNAPSHOT\s3-file-storage-1.
+0.0-SNAPSHOT.jar;C:\Users\psumans\.m2\repository\com\amazonaws\aws-java-sdk-s3\1.12.400\aws-java-sdk-s3-1.12.400.jar;C:\Users\psumans\.m2\repositor
+y\com\amazonaws\aws-java-sdk-kms\1.12.400\aws-java-sdk-kms-1.12.400.jar;C:\Users\psumans\.m2\repository\com\amazonaws\aws-java-sdk-core\1.12.400\aw
+s-java-sdk-core-1.12.400.jar;C:\Users\psumans\.m2\repository\commons-logging\commons-logging\1.1.3\commons-logging-1.1.3.jar;C:\Users\psumans\.m2\r
+epository\commons-codec\commons-codec\1.16.1\commons-codec-1.16.1.jar;C:\Users\psumans\.m2\repository\org\apache\httpcomponents\httpclient\4.5.13\h
+ttpclient-4.5.13.jar;C:\Users\psumans\.m2\repository\org\apache\httpcomponents\httpcore\4.4.16\httpcore-4.4.16.jar;C:\Users\psumans\.m2\repository\
+software\amazon\ion\ion-java\1.0.2\ion-java-1.0.2.jar;C:\Users\psumans\.m2\repository\com\fasterxml\jackson\dataformat\jackson-dataformat-cbor\2.15
+.4\jackson-dataformat-cbor-2.15.4.jar;C:\Users\psumans\.m2\repository\joda-time\joda-time\2.8.1\joda-time-2.8.1.jar;C:\Users\psumans\.m2\repository
+\com\amazonaws\jmespath-java\1.12.400\jmespath-java-1.12.400.jar;C:\Users\psumans\.m2\repository\org\springframework\security\spring-security-core\
+6.2.4\spring-security-core-6.2.4.jar;C:\Users\psumans\.m2\repository\org\springframework\security\spring-security-crypto\6.2.4\spring-security-cryp
+to-6.2.4.jar;C:\Users\psumans\.m2\repository\org\springframework\boot\spring-boot-starter-test\3.2.5\spring-boot-starter-test-3.2.5.jar;C:\Users\ps
+umans\.m2\repository\org\springframework\boot\spring-boot-test\3.2.5\spring-boot-test-3.2.5.jar;C:\Users\psumans\.m2\repository\org\springframework
+\boot\spring-boot-test-autoconfigure\3.2.5\spring-boot-test-autoconfigure-3.2.5.jar;C:\Users\psumans\.m2\repository\com\jayway\jsonpath\json-path\2
+.9.0\json-path-2.9.0.jar;C:\Users\psumans\.m2\repository\jakarta\xml\bind\jakarta.xml.bind-api\4.0.2\jakarta.xml.bind-api-4.0.2.jar;C:\Users\psuman
+s\.m2\repository\jakarta\activation\jakarta.activation-api\2.1.3\jakarta.activation-api-2.1.3.jar;C:\Users\psumans\.m2\repository\net\minidev\json-
+smart\2.5.1\json-smart-2.5.1.jar;C:\Users\psumans\.m2\repository\net\minidev\accessors-smart\2.5.1\accessors-smart-2.5.1.jar;C:\Users\psumans\.m2\r
+epository\org\ow2\asm\asm\9.6\asm-9.6.jar;C:\Users\psumans\.m2\repository\org\assertj\assertj-core\3.24.2\assertj-core-3.24.2.jar;C:\Users\psumans\
+.m2\repository\org\awaitility\awaitility\4.2.1\awaitility-4.2.1.jar;C:\Users\psumans\.m2\repository\org\hamcrest\hamcrest\2.2\hamcrest-2.2.jar;C:\U
+sers\psumans\.m2\repository\org\junit\jupiter\junit-jupiter\5.10.2\junit-jupiter-5.10.2.jar;C:\Users\psumans\.m2\repository\org\junit\jupiter\junit
+-jupiter-api\5.10.2\junit-jupiter-api-5.10.2.jar;C:\Users\psumans\.m2\repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;C:\Users\psum
+ans\.m2\repository\org\junit\platform\junit-platform-commons\1.10.2\junit-platform-commons-1.10.2.jar;C:\Users\psumans\.m2\repository\org\apiguardi
+an\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;C:\Users\psumans\.m2\repository\org\junit\jupiter\junit-jupiter-params\5.10.2\junit-jupiter-para
+ms-5.10.2.jar;C:\Users\psumans\.m2\repository\org\junit\jupiter\junit-jupiter-engine\5.10.2\junit-jupiter-engine-5.10.2.jar;C:\Users\psumans\.m2\re
+pository\org\junit\platform\junit-platform-engine\1.10.2\junit-platform-engine-1.10.2.jar;C:\Users\psumans\.m2\repository\org\mockito\mockito-core\
+5.7.0\mockito-core-5.7.0.jar;C:\Users\psumans\.m2\repository\net\bytebuddy\byte-buddy-agent\1.14.13\byte-buddy-agent-1.14.13.jar;C:\Users\psumans\.
+m2\repository\org\objenesis\objenesis\3.3\objenesis-3.3.jar;C:\Users\psumans\.m2\repository\org\mockito\mockito-junit-jupiter\5.7.0\mockito-junit-j
+upiter-5.7.0.jar;C:\Users\psumans\.m2\repository\org\skyscreamer\jsonassert\1.5.1\jsonassert-1.5.1.jar;C:\Users\psumans\.m2\repository\com\vaadin\e
+xternal\google\android-json\0.0.20131108.vaadin1\android-json-0.0.20131108.vaadin1.jar;C:\Users\psumans\.m2\repository\org\springframework\spring-c
+ore\6.1.6\spring-core-6.1.6.jar;C:\Users\psumans\.m2\repository\org\springframework\spring-jcl\6.1.6\spring-jcl-6.1.6.jar;C:\Users\psumans\.m2\repo
+sitory\org\springframework\spring-test\6.1.6\spring-test-6.1.6.jar;C:\Users\psumans\.m2\repository\org\xmlunit\xmlunit-core\2.9.1\xmlunit-core-2.9.
+1.jar
