@@ -15,3 +15,10 @@ mvn "org.apache.maven.plugins:maven-dependency-plugin:3.8.1:get" "-Dartifact=com
 
 
 Get-ChildItem "$env:USERPROFILE\.m2\repository\com\amazonaws\aws-java-sdk-core" -Recurse -Filter "*.jar" | Select-Object FullName
+
+
+
+
+
+
+mvn help:evaluate "-Dexpression=settings.localRepository" "-q" "-DforceStdout"
