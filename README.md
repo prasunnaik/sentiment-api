@@ -11,3 +11,7 @@ jar tf "$env:USERPROFILE\.m2\repository\com\amazonaws\aws-java-sdk-core\1.12.400
 
 
 mvn "org.apache.maven.plugins:maven-dependency-plugin:3.8.1:get" "-Dartifact=com.amazonaws:aws-java-sdk-core:1.12.400"
+
+
+
+Get-ChildItem "$env:USERPROFILE\.m2\repository\com\amazonaws\aws-java-sdk-core" -Recurse -Filter "*.jar" | Select-Object FullName
