@@ -1,10 +1,10 @@
-2026-09-15T12:05:42.888+05:30  INFO 34192 --- [insurewise-service] [           main] com.insurewise.InsurewiseApplication     : Starting InsurewiseApplication using Java 21.0.12 with PID 34192 (C:\Users\psumans\CAP-Code\insurewise-cap-angular-be\insurewise-service\target\classes started by psumans in C:\Users\psumans\CAP-Code)
-2026-09-15T12:05:42.891+05:30  INFO 34192 --- [insurewise-service] [           main] com.insurewise.InsurewiseApplication     : No active profile set, falling back to 1 default profile: "default"
-2026-09-15T12:05:44.422+05:30  WARN 34192 --- [insurewise-service] [           main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanDefinitionStoreException: Failed to read candidate component class: file [C:\Users\psumans\CAP-Code\insurewise-cap-angular-be\insurewise-service\target\classes\com\insurewise\auth\config\AuthBeansConfig.class]
-2026-09-15T12:05:44.437+05:30  INFO 34192 --- [insurewise-service] [           main] .s.b.a.l.ConditionEvaluationReportLogger : 
+2026-09-15T12:10:04.044+05:30  INFO 53104 --- [insurewise-service] [           main] com.insurewise.InsurewiseApplication     : Starting InsurewiseApplication using Java 21.0.12 with PID 53104 (C:\Users\psumans\CAP-Code\insurewise-cap-angular-be\insurewise-service\target\classes started by psumans in C:\Users\psumans\CAP-Code)
+2026-09-15T12:10:04.046+05:30  INFO 53104 --- [insurewise-service] [           main] com.insurewise.InsurewiseApplication     : No active profile set, falling back to 1 default profile: "default"
+2026-09-15T12:10:05.385+05:30  WARN 53104 --- [insurewise-service] [           main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanDefinitionStoreException: Failed to read candidate component class: file [C:\Users\psumans\CAP-Code\insurewise-cap-angular-be\insurewise-service\target\classes\com\insurewise\auth\config\AuthBeansConfig.class]
+2026-09-15T12:10:05.400+05:30  INFO 53104 --- [insurewise-service] [           main] .s.b.a.l.ConditionEvaluationReportLogger : 
 
 Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
-2026-09-15T12:05:44.476+05:30 ERROR 34192 --- [insurewise-service] [           main] o.s.boot.SpringApplication               : Application run failed
+2026-09-15T12:10:05.437+05:30 ERROR 53104 --- [insurewise-service] [           main] o.s.boot.SpringApplication               : Application run failed
 
 org.springframework.beans.factory.BeanDefinitionStoreException: Failed to read candidate component class: file [C:\Users\psumans\CAP-Code\insurewise-cap-angular-be\insurewise-service\target\classes\com\insurewise\auth\config\AuthBeansConfig.class]
 	at org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider.scanCandidateComponents(ClassPathScanningCandidateComponentProvider.java:510) ~[spring-context-6.1.6.jar:6.1.6]
