@@ -1,0 +1,882 @@
+src/
+└── app/
+    ├── app.component.ts
+    ├── app.routes.ts
+    │
+    ├── core/
+    │   ├── auth/
+    │   │   └── auth.service.ts
+    │   │
+    │   ├── http/
+    │   │   └── auth.interceptor.ts
+    │   │
+    │   └── environment/
+    │       └── api.config.ts
+    │
+    ├── services/
+    │   └── api/
+    │       ├── dashboard.service.ts
+    │       ├── staff-user.service.ts
+    │       ├── policy.service.ts
+    │       ├── policy-application.service.ts
+    │       └── application-document.service.ts
+    │
+    ├── models/
+    │   ├── auth.models.ts
+    │   ├── staff.models.ts
+    │   ├── policy.models.ts
+    │   └── application.models.ts
+    │
+    └── pages/
+        ├── auth/
+        │   └── staff-login/
+        │       └── staff-login.component.ts
+        │
+        └── staff/
+            ├── dashboard/
+            │   └── dashboard.component.ts
+            │
+            ├── manage-users-list/
+            │   └── manage-users-list.component.ts
+            │
+            ├── manage-users-new/
+            │   └── manage-users-new.component.ts
+            │
+            ├── policies-list/
+            │   └── policies-list.component.ts
+            │
+            ├── policies-new/
+            │   └── policies-new.component.ts
+            │
+            ├── approve-policies-list/
+            │   └── approve-policies-list.component.ts
+            │
+            └── approve-policies-review/
+                └── approve-policies-review.component.ts
+
+
+
+Auth models
+
+Create:
+
+src/app/models/auth.models.ts
+
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user_id: string;
+  email: string;
+  role: string;
+}
+
+export interface StaffLoginRequest {
+  email: string;
+  password: string;
+}
+
+
+API configuration
+
+Create:
+
+src/app/core/environment/api.config.ts
+
+export const API_BASE_URL = 'http://localhost:8080';
+
+
+
+
+AuthService
+
+This is the important part.
+
+Create:
+
+src/app/core/auth/auth.service.ts
+
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, tap } from 'rxjs';
+
+import { API_BASE_URL } from '../environment/api.config';
+import {
+  AuthResponse,
+  StaffLoginRequest
+} from '../../models/auth.models';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class AuthService {
+
+  private readonly TOKEN_KEY = 'insurewise_access_token';
+  private readonly USER_ID_KEY = 'insurewise_user_id';
+  private readonly EMAIL_KEY = 'insurewise_email';
+  private readonly ROLE_KEY = 'insurewise_role';
+
+  constructor(private http: HttpClient) {}
+
+  staffLogin(request: StaffLoginRequest): Observable<AuthResponse> {
+
+    return this.http
+      .post<AuthResponse>(
+        `${API_BASE_URL}/auth/staff/login`,
+        request
+      )
+      .pipe(
+        tap(response => {
+
+          localStorage.setItem(
+            this.TOKEN_KEY,
+            response.access_token
+          );
+
+          localStorage.setItem(
+            this.USER_ID_KEY,
+            response.user_id
+          );
+
+          localStorage.setItem(
+            this.EMAIL_KEY,
+            response.email
+          );
+
+          localStorage.setItem(
+            this.ROLE_KEY,
+            response.role
+          );
+        })
+      );
+  }
+
+  getToken(): string | null {
+    return localStorage.getItem(this.TOKEN_KEY);
+  }
+
+  getUserId(): string | null {
+    return localStorage.getItem(this.USER_ID_KEY);
+  }
+
+  getEmail(): string | null {
+    return localStorage.getItem(this.EMAIL_KEY);
+  }
+
+  getRole(): string | null {
+    return localStorage.getItem(this.ROLE_KEY);
+  }
+
+  isLoggedIn(): boolean {
+    return !!this.getToken();
+  }
+
+  isStaff(): boolean {
+    return this.getRole() === 'STAFF';
+  }
+
+  logout(): void {
+    localStorage.removeItem(this.TOKEN_KEY);
+    localStorage.removeItem(this.USER_ID_KEY);
+    localStorage.removeItem(this.EMAIL_KEY);
+    localStorage.removeItem(this.ROLE_KEY);
+  }
+}
+
+
+HTTP interceptor
+
+Create:
+
+src/app/core/http/auth.interceptor.ts
+
+import {
+  HttpInterceptorFn
+} from '@angular/common/http';
+
+import { inject } from '@angular/core';
+import { AuthService } from '../auth/auth.service';
+
+export const authInterceptor: HttpInterceptorFn =
+  (req, next) => {
+
+    const authService = inject(AuthService);
+
+    const token = authService.getToken();
+
+    if (!token) {
+      return next(req);
+    }
+
+    const authenticatedRequest = req.clone({
+      setHeaders: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    return next(authenticatedRequest);
+  };
+
+
+Register interceptor
+
+Your main.ts should be:
+
+
+import { bootstrapApplication } from '@angular/platform-browser';
+import {
+  provideHttpClient,
+  withInterceptors
+} from '@angular/common/http';
+
+import { AppComponent } from './app/app.component';
+import { authInterceptor } from './app/core/http/auth.interceptor';
+
+bootstrapApplication(AppComponent, {
+  providers: [
+    provideHttpClient(
+      withInterceptors([
+        authInterceptor
+      ])
+    )
+  ]
+}).catch(error => console.error(error));
+
+
+
+
+Staff login UI
+
+Create:
+
+src/app/pages/auth/staff-login/staff-login.component.ts
+
+
+import { Component } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+
+import { AuthService } from '../../../core/auth/auth.service';
+
+@Component({
+  selector: 'app-staff-login',
+  standalone: true,
+  imports: [FormsModule],
+  template: `
+    <div class="login-page">
+
+      <div class="login-card">
+
+        <h1>InsureWise</h1>
+
+        <p>Staff Login</p>
+
+        <form (ngSubmit)="login()">
+
+          <label>Email</label>
+
+          <input
+            type="email"
+            name="email"
+            [(ngModel)]="email"
+            required
+          />
+
+          <label>Password</label>
+
+          <input
+            type="password"
+            name="password"
+            [(ngModel)]="password"
+            required
+          />
+
+          @if (errorMessage) {
+            <div class="error">
+              {{ errorMessage }}
+            </div>
+          }
+
+          <button type="submit">
+            Login
+          </button>
+
+        </form>
+
+      </div>
+
+    </div>
+  `
+})
+export class StaffLoginComponent {
+
+  email = '';
+  password = '';
+  errorMessage = '';
+
+  constructor(
+    private authService: AuthService,
+    private router: Router
+  ) {}
+
+  login(): void {
+
+    this.errorMessage = '';
+
+    this.authService.staffLogin({
+      email: this.email,
+      password: this.password
+    }).subscribe({
+
+      next: response => {
+
+        if (response.role !== 'STAFF') {
+          this.authService.logout();
+          this.errorMessage = 'Staff access required.';
+          return;
+        }
+
+        this.router.navigate(['/staff/dashboard']);
+      },
+
+      error: () => {
+        this.errorMessage =
+          'Invalid email or password.';
+      }
+
+    });
+  }
+}
+
+
+
+Dashboard service
+
+src/app/services/api/dashboard.service.ts
+
+
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+import { API_BASE_URL } from '../../core/environment/api.config';
+
+export interface DashboardMetrics {
+  totalCustomers: number;
+  totalStaff: number;
+  totalCategories: number;
+  totalPolicies: number;
+  activePolicies: number;
+  totalApplications: number;
+  pendingApplications: number;
+  activeApplications: number;
+  totalClaims: number;
+  pendingClaims: number;
+  totalPayments: number;
+  successfulPayments: number;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class DashboardService {
+
+  constructor(private http: HttpClient) {}
+
+  getMetrics(): Observable<DashboardMetrics> {
+
+    return this.http.get<DashboardMetrics>(
+      `${API_BASE_URL}/api/dashboard/metrics`
+    );
+  }
+}
+
+
+
+
+
+Staff User service
+
+This matches your actual backend.
+
+src/app/services/api/staff-user.service.ts
+
+
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+import { API_BASE_URL } from '../../core/environment/api.config';
+
+export interface StaffUser {
+  id: string;
+  full_name: string;
+  email: string;
+  address: string;
+  profilePictureUrl: string | null;
+}
+
+export interface StaffCreateRequest {
+  fullName: string;
+  email: string;
+  address: string;
+  password: string;
+}
+
+export interface StaffUpdateRequest {
+  fullName: string;
+  email: string;
+  address: string;
+  password?: string;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class StaffUserService {
+
+  private readonly url =
+    `${API_BASE_URL}/api/staff/users`;
+
+  constructor(private http: HttpClient) {}
+
+  getAll(): Observable<StaffUser[]> {
+    return this.http.get<StaffUser[]>(this.url);
+  }
+
+  getById(id: string): Observable<StaffUser> {
+    return this.http.get<StaffUser>(
+      `${this.url}/${id}`
+    );
+  }
+
+  create(
+    request: StaffCreateRequest
+  ): Observable<StaffUser> {
+
+    return this.http.post<StaffUser>(
+      this.url,
+      request
+    );
+  }
+
+  update(
+    id: string,
+    request: StaffUpdateRequest
+  ): Observable<StaffUser> {
+
+    return this.http.put<StaffUser>(
+      `${this.url}/${id}`,
+      request
+    );
+  }
+
+  delete(id: string): Observable<void> {
+
+    return this.http.delete<void>(
+      `${this.url}/${id}`
+    );
+  }
+
+  uploadProfilePicture(
+    id: string,
+    file: File
+  ): Observable<StaffUser> {
+
+    const formData = new FormData();
+
+    formData.append('file', file);
+
+    return this.http.post<StaffUser>(
+      `${this.url}/${id}/profile-picture`,
+      formData
+    );
+  }
+
+  deleteProfilePicture(
+    id: string
+  ): Observable<void> {
+
+    return this.http.delete<void>(
+      `${this.url}/${id}/profile-picture`
+    );
+  }
+}
+
+
+
+
+Policy service
+
+Your backend currently accepts:
+
+PolicyCreateRequest
+
+with:
+
+name
+categoryId
+coverageAmount
+premiumAmount
+durationLabel
+status
+
+So Angular should send exactly that.
+
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+import { API_BASE_URL } from '../../core/environment/api.config';
+
+export interface Policy {
+  id: string;
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  coverageAmount: number;
+  premiumAmount: number;
+  durationLabel: string;
+  status: 'DRAFT' | 'ACTIVE' | 'INACTIVE';
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  description: string;
+  status: 'ACTIVE' | 'INACTIVE';
+}
+
+export interface PolicyRequest {
+  name: string;
+  categoryId: string;
+  coverageAmount: number;
+  premiumAmount: number;
+  durationLabel: string;
+  status: 'DRAFT' | 'ACTIVE' | 'INACTIVE';
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class PolicyService {
+
+  private readonly policiesUrl =
+    `${API_BASE_URL}/api/policies`;
+
+  private readonly categoriesUrl =
+    `${API_BASE_URL}/api/categories`;
+
+  constructor(private http: HttpClient) {}
+
+  getPolicies(): Observable<Policy[]> {
+    return this.http.get<Policy[]>(
+      this.policiesUrl
+    );
+  }
+
+  getPolicy(id: string): Observable<Policy> {
+    return this.http.get<Policy>(
+      `${this.policiesUrl}/${id}`
+    );
+  }
+
+  create(
+    request: PolicyRequest
+  ): Observable<Policy> {
+
+    return this.http.post<Policy>(
+      this.policiesUrl,
+      request
+    );
+  }
+
+  update(
+    id: string,
+    request: PolicyRequest
+  ): Observable<Policy> {
+
+    return this.http.put<Policy>(
+      `${this.policiesUrl}/${id}`,
+      request
+    );
+  }
+
+  delete(id: string): Observable<void> {
+
+    return this.http.delete<void>(
+      `${this.policiesUrl}/${id}`
+    );
+  }
+
+  getCategories(): Observable<Category[]> {
+
+    return this.http.get<Category[]>(
+      this.categoriesUrl
+    );
+  }
+}
+
+
+
+
+
+BR05 Application service
+
+This should match your actual controller.
+
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+import { API_BASE_URL } from '../../core/environment/api.config';
+
+export interface PolicyApplication {
+  id: string;
+  applicationCode: string;
+  customerId: string;
+  policyId: string;
+  policyName: string;
+  coverageType: string;
+  coverageAmount: number;
+  premiumAmount: number;
+  dateOfBirth: string;
+  address: string;
+  preferredStartDate: string;
+  nomineeName: string;
+  nomineeRelationship: string;
+  startDate: string | null;
+  endDate: string | null;
+  status: 'PENDING' | 'ACTIVE' | 'REJECTED';
+  decidedBy: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class PolicyApplicationService {
+
+  private readonly url =
+    `${API_BASE_URL}/api/applications`;
+
+  constructor(private http: HttpClient) {}
+
+  getApplications(
+    status?: string
+  ): Observable<PolicyApplication[]> {
+
+    let params = new HttpParams();
+
+    if (status) {
+      params = params.set('status', status);
+    }
+
+    return this.http.get<PolicyApplication[]>(
+      this.url,
+      { params }
+    );
+  }
+
+  getApplication(
+    id: string
+  ): Observable<PolicyApplication> {
+
+    return this.http.get<PolicyApplication>(
+      `${this.url}/${id}`
+    );
+  }
+
+  approve(
+    id: string
+  ): Observable<any> {
+
+    return this.http.put(
+      `${this.url}/${id}/approve`,
+      {}
+    );
+  }
+
+  reject(
+    id: string
+  ): Observable<any> {
+
+    return this.http.put(
+      `${this.url}/${id}/reject`,
+      {}
+    );
+  }
+}
+
+
+
+
+BR05 S3 documents service
+
+Your backend expects:
+
+POST /api/applications/{id}/documents
+
+with multipart field:
+
+file
+
+So:
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+import { API_BASE_URL } from '../../core/environment/api.config';
+
+export interface ApplicationDocument {
+  id: string;
+  applicationId: string;
+  fileName: string;
+  contentType: string;
+  download: {
+    url: string;
+    expiresAt: string;
+  };
+  uploadedBy: string;
+  createdAt: string;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ApplicationDocumentService {
+
+  constructor(private http: HttpClient) {}
+
+  getDocuments(
+    applicationId: string
+  ): Observable<ApplicationDocument[]> {
+
+    return this.http.get<ApplicationDocument[]>(
+      `${API_BASE_URL}/api/applications/${applicationId}/documents`
+    );
+  }
+
+  upload(
+    applicationId: string,
+    file: File
+  ): Observable<ApplicationDocument> {
+
+    const formData = new FormData();
+
+    formData.append('file', file);
+
+    return this.http.post<ApplicationDocument>(
+      `${API_BASE_URL}/api/applications/${applicationId}/documents`,
+      formData
+    );
+  }
+
+  delete(
+    applicationId: string,
+    documentId: string
+  ): Observable<void> {
+
+    return this.http.delete<void>(
+      `${API_BASE_URL}/api/applications/${applicationId}/documents/${documentId}`
+    );
+  }
+}
+
+
+
+
+
+Route structure
+
+Your app.routes.ts should ultimately look approximately like this:
+
+import { Routes } from '@angular/router';
+
+import { StaffLoginComponent }
+  from './pages/auth/staff-login/staff-login.component';
+
+import { DashboardComponent }
+  from './pages/staff/dashboard/dashboard.component';
+
+import { ManageUsersListComponent }
+  from './pages/staff/manage-users-list/manage-users-list.component';
+
+import { ManageUsersNewComponent }
+  from './pages/staff/manage-users-new/manage-users-new.component';
+
+import { PoliciesListComponent }
+  from './pages/staff/policies-list/policies-list.component';
+
+import { PoliciesNewComponent }
+  from './pages/staff/policies-new/policies-new.component';
+
+import { ApprovePoliciesListComponent }
+  from './pages/staff/approve-policies-list/approve-policies-list.component';
+
+import { ApprovePoliciesReviewComponent }
+  from './pages/staff/approve-policies-review/approve-policies-review.component';
+
+export const routes: Routes = [
+
+  {
+    path: 'staff/login',
+    component: StaffLoginComponent
+  },
+
+  {
+    path: 'staff/dashboard',
+    component: DashboardComponent
+  },
+
+  {
+    path: 'staff/users',
+    component: ManageUsersListComponent
+  },
+
+  {
+    path: 'staff/users/new',
+    component: ManageUsersNewComponent
+  },
+
+  {
+    path: 'staff/policies',
+    component: PoliciesListComponent
+  },
+
+  {
+    path: 'staff/policies/new',
+    component: PoliciesNewComponent
+  },
+
+  {
+    path: 'staff/applications',
+    component: ApprovePoliciesListComponent
+  },
+
+  {
+    path: 'staff/applications/:id',
+    component: ApprovePoliciesReviewComponent
+  },
+
+  {
+    path: '',
+    redirectTo: 'staff/login',
+    pathMatch: 'full'
+  },
+
+  {
+    path: '**',
+    redirectTo: 'staff/login'
+  }
+];
+
+
+
+
