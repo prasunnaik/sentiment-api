@@ -1,113 +1,434 @@
-export interface DashboardMetrics {
-  customers: number;
-  staff: number;
-  categories: number;
-  policies: number;
-  activePolicies: number;
-  applications: number;
-  claims: number;
-  payments: number;
-}
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import {
+  FormBuilder,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators
+} from '@angular/forms';
+import {
+  ActivatedRoute,
+  Router
+} from '@angular/router';
 
+import {
+  StaffUserApiService
+} from '../../../services/api/staff-user-api.service';
 
-/* =========================
-   STAFF USER
-   ========================= */
+@Component({
+  selector: 'app-manage-users-new',
+  standalone: true,
+  imports: [
+    CommonModule,
+    ReactiveFormsModule
+  ],
+  templateUrl: './manage-users-new.component.html',
+  styleUrls: ['./manage-users-new.component.css']
+})
+export class ManageUsersNewComponent implements OnInit {
 
-export interface StaffUser {
-  id: string;
-  fullName: string;
-  email: string;
-  address: string;
-  profilePictureUrl?: string | null;
-}
+  userId: string | null = null;
+  isEdit = false;
 
-export interface StaffCreateRequest {
-  fullName: string;
-  email: string;
-  address: string;
-  password: string;
-}
+  loading = false;
+  saving = false;
 
-export interface StaffUpdateRequest {
-  fullName: string;
-  email: string;
-  address: string;
-}
+  error = '';
+  success = '';
 
+  selectedFile: File | null = null;
+  previewUrl: string | null = null;
 
-/* =========================
-   CATEGORY
-   ========================= */
+  form: FormGroup<{
+    fullname: FormControl<string>;
+    email: FormControl<string>;
+    address: FormControl<string>;
+    password: FormControl<string>;
+  }>;
 
-export interface Category {
-  id: string;
-  name: string;
-  status: string;
-}
+  constructor(
+    private readonly fb: FormBuilder,
+    private readonly staffUserApi: StaffUserApiService,
+    private readonly route: ActivatedRoute,
+    private readonly router: Router
+  ) {
 
+    this.form = this.fb.nonNullable.group({
 
-/* =========================
-   POLICY
-   ========================= */
+      fullname: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(2),
+          Validators.maxLength(100),
+          Validators.pattern(
+            /^[A-Za-z]+(?:[ '-][A-Za-z]+)*$/
+          )
+        ]
+      ],
 
-export interface Policy {
-  id: string;
-  name: string;
-  categoryId: string;
-  categoryName?: string;
-  coverageAmount: number;
-  premiumAmount: number;
-  durationLabel: string;
-  status: string;
-}
+      email: [
+        '',
+        [
+          Validators.required,
+          Validators.email,
+          Validators.maxLength(150)
+        ]
+      ],
 
-export interface PolicyCreateRequest {
-  name: string;
-  categoryId: string;
-  coverageAmount: number;
-  premiumAmount: number;
-  durationLabel: string;
-  status: string;
-}
+      address: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(5),
+          Validators.maxLength(250)
+        ]
+      ],
 
+      password: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(6),
+          Validators.maxLength(100)
+        ]
+      ]
+    });
+  }
 
-/* =========================
-   POLICY APPLICATION
-   ========================= */
+  ngOnInit(): void {
 
-export interface PolicyApplication {
-  id: string;
-  applicationCode?: string;
-  customerId?: string;
-  policyId?: string;
-  policyName?: string;
-  coverageType?: string;
-  coverageAmount?: number;
-  premiumAmount?: number;
-  dateOfBirth?: string;
-  address?: string;
-  preferredStartDate?: string;
-  nomineeName?: string;
-  nomineeRelationship?: string;
-  startDate?: string;
-  endDate?: string;
-  status: string;
-  decidedBy?: string;
-  decidedAt?: string;
-  createdAt?: string;
-}
+    this.userId =
+      this.route.snapshot.paramMap.get('id');
 
+    this.isEdit = !!this.userId;
 
-/* =========================
-   APPLICATION DOCUMENT
-   ========================= */
+    /*
+     * Password is required only when creating
+     * a new staff user.
+     */
+    if (this.isEdit) {
+      this.form.controls.password.clearValidators();
+      this.form.controls.password.updateValueAndValidity();
+    }
 
-export interface ApplicationDocument {
-  id: string;
-  fileName: string;
-  contentType: string;
-  s3Key: string;
-  uploadedBy?: string;
-  createdAt?: string;
+    if (this.userId) {
+      this.loadUser(this.userId);
+    }
+  }
+
+  loadUser(id: string): void {
+
+    this.loading = true;
+    this.error = '';
+
+    this.staffUserApi.getById(id).subscribe({
+
+      next: (user) => {
+
+        this.form.patchValue({
+          fullname: user.name,
+          email: user.email,
+          address: user.address
+        });
+
+        this.previewUrl =
+          user.profilePictureUrl ?? null;
+
+        this.loading = false;
+      },
+
+      error: (error: unknown) => {
+
+        console.error(
+          'Unable to load staff user.',
+          error
+        );
+
+        this.error =
+          'Unable to load staff user.';
+
+        this.loading = false;
+      }
+    });
+  }
+
+  onFileSelected(event: Event): void {
+
+    const input =
+      event.target as HTMLInputElement;
+
+    if (
+      !input.files ||
+      input.files.length === 0
+    ) {
+      return;
+    }
+
+    const file =
+      input.files[0];
+
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp'
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+
+      this.error =
+        'Only JPG, PNG or WEBP images are allowed.';
+
+      input.value = '';
+
+      return;
+    }
+
+    const maxSize =
+      5 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+
+      this.error =
+        'Profile picture must be 5 MB or smaller.';
+
+      input.value = '';
+
+      return;
+    }
+
+    this.error = '';
+    this.selectedFile = file;
+
+    const reader =
+      new FileReader();
+
+    reader.onload = () => {
+
+      this.previewUrl =
+        reader.result as string;
+    };
+
+    reader.readAsDataURL(file);
+  }
+
+  removeSelectedPicture(): void {
+
+    this.selectedFile = null;
+    this.previewUrl = null;
+  }
+
+  save(): void {
+
+    this.error = '';
+    this.success = '';
+
+    if (this.form.invalid) {
+
+      this.form.markAllAsTouched();
+
+      return;
+    }
+
+    this.saving = true;
+
+    /*
+     * EDIT STAFF USER
+     */
+    if (
+      this.isEdit &&
+      this.userId
+    ) {
+
+      const updateRequest = {
+
+        fullname:
+          this.form.controls.fullname.value.trim(),
+
+        email:
+          this.form.controls.email.value.trim(),
+
+        address:
+          this.form.controls.address.value.trim()
+      };
+
+      this.staffUserApi
+        .update(
+          this.userId,
+          updateRequest
+        )
+        .subscribe({
+
+          next: () => {
+
+            this.saving = false;
+
+            this.success =
+              'Staff user updated successfully.';
+
+            setTimeout(() => {
+
+              this.router.navigate([
+                '/staff/manage-users'
+              ]);
+
+            }, 700);
+          },
+
+          error: (error: unknown) => {
+
+            this.saving = false;
+
+            this.error =
+              this.getErrorMessage(
+                error,
+                'Unable to update staff user.'
+              );
+          }
+        });
+
+      return;
+    }
+
+    /*
+     * CREATE STAFF USER
+     */
+    const createRequest = {
+
+      name:
+        this.form.controls.fullname.value.trim(),
+
+      email:
+        this.form.controls.email.value.trim(),
+
+      address:
+        this.form.controls.address.value.trim(),
+
+      password:
+        this.form.controls.password.value
+    };
+
+    this.staffUserApi
+      .create(createRequest)
+      .subscribe({
+
+        next: () => {
+
+          this.saving = false;
+
+          this.success =
+            'Staff user created successfully.';
+
+          setTimeout(() => {
+
+            this.router.navigate([
+              '/staff/manage-users'
+            ]);
+
+          }, 700);
+        },
+
+        error: (error: unknown) => {
+
+          this.saving = false;
+
+          this.error =
+            this.getErrorMessage(
+              error,
+              'Unable to create staff user.'
+            );
+        }
+      });
+  }
+
+  cancel(): void {
+
+    this.router.navigate([
+      '/staff/manage-users'
+    ]);
+  }
+
+  get fullnameInvalid(): boolean {
+
+    const control =
+      this.form.controls.fullname;
+
+    return (
+      control.invalid &&
+      (
+        control.dirty ||
+        control.touched
+      )
+    );
+  }
+
+  get emailInvalid(): boolean {
+
+    const control =
+      this.form.controls.email;
+
+    return (
+      control.invalid &&
+      (
+        control.dirty ||
+        control.touched
+      )
+    );
+  }
+
+  get addressInvalid(): boolean {
+
+    const control =
+      this.form.controls.address;
+
+    return (
+      control.invalid &&
+      (
+        control.dirty ||
+        control.touched
+      )
+    );
+  }
+
+  get passwordInvalid(): boolean {
+
+    const control =
+      this.form.controls.password;
+
+    return (
+      control.invalid &&
+      (
+        control.dirty ||
+        control.touched
+      )
+    );
+  }
+
+  private getErrorMessage(
+    error: unknown,
+    defaultMessage: string
+  ): string {
+
+    if (
+      error !== null &&
+      typeof error === 'object' &&
+      'error' in error
+    ) {
+
+      const response =
+        error as {
+          error?: {
+            message?: string;
+          };
+        };
+
+      return (
+        response.error?.message ??
+        defaultMessage
+      );
+    }
+
+    return defaultMessage;
+  }
 }
