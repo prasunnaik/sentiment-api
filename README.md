@@ -40,15 +40,11 @@ export class ManageUsersNewComponent implements OnInit {
   selectedFile: File | null = null;
   previewUrl: string | null = null;
 
-  /*
-   * Explicit form type.
-   * This makes TypeScript recognise:
-   * name, email and address.
-   */
   form: FormGroup<{
     name: FormControl<string>;
     email: FormControl<string>;
     address: FormControl<string>;
+    password: FormControl<string>;
   }>;
 
   constructor(
@@ -58,9 +54,6 @@ export class ManageUsersNewComponent implements OnInit {
     private readonly router: Router
   ) {
 
-    /*
-     * Initialize after FormBuilder has been injected.
-     */
     this.form = this.fb.nonNullable.group({
 
       name: [
@@ -69,20 +62,6 @@ export class ManageUsersNewComponent implements OnInit {
           Validators.required,
           Validators.minLength(2),
           Validators.maxLength(100),
-
-          /*
-           * Allows:
-           * John
-           * John Doe
-           * John-Doe
-           * O'Connor
-           *
-           * Rejects:
-           * John@
-           * John#
-           * John$
-           * John123
-           */
           Validators.pattern(
             /^[A-Za-z]+(?:[ '-][A-Za-z]+)*$/
           )
@@ -105,6 +84,15 @@ export class ManageUsersNewComponent implements OnInit {
           Validators.minLength(5),
           Validators.maxLength(250)
         ]
+      ],
+
+      password: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(6),
+          Validators.maxLength(100)
+        ]
       ]
     });
   }
@@ -116,11 +104,17 @@ export class ManageUsersNewComponent implements OnInit {
 
     this.isEdit = !!this.userId;
 
-    if (this.userId) {
+    /*
+     * Password is required only when creating
+     * a new staff user.
+     */
+    if (this.isEdit) {
+      this.form.controls.password.clearValidators();
+      this.form.controls.password.updateValueAndValidity();
+    }
 
-      this.loadUser(
-        this.userId
-      );
+    if (this.userId) {
+      this.loadUser(this.userId);
     }
   }
 
@@ -134,15 +128,9 @@ export class ManageUsersNewComponent implements OnInit {
       next: (user) => {
 
         this.form.patchValue({
-
-          name:
-            user.name,
-
-          email:
-            user.email,
-
-          address:
-            user.address
+          name: user.name,
+          email: user.email,
+          address: user.address
         });
 
         this.previewUrl =
@@ -181,18 +169,13 @@ export class ManageUsersNewComponent implements OnInit {
     const file =
       input.files[0];
 
-    /*
-     * Allowed profile-picture formats.
-     */
     const allowedTypes = [
       'image/jpeg',
       'image/png',
       'image/webp'
     ];
 
-    if (
-      !allowedTypes.includes(file.type)
-    ) {
+    if (!allowedTypes.includes(file.type)) {
 
       this.error =
         'Only JPG, PNG or WEBP images are allowed.';
@@ -202,9 +185,6 @@ export class ManageUsersNewComponent implements OnInit {
       return;
     }
 
-    /*
-     * Maximum file size = 5 MB.
-     */
     const maxSize =
       5 * 1024 * 1024;
 
@@ -219,12 +199,8 @@ export class ManageUsersNewComponent implements OnInit {
     }
 
     this.error = '';
-
     this.selectedFile = file;
 
-    /*
-     * Create preview.
-     */
     const reader =
       new FileReader();
 
@@ -257,18 +233,6 @@ export class ManageUsersNewComponent implements OnInit {
 
     this.saving = true;
 
-    const request = {
-
-      name:
-        this.form.controls.name.value.trim(),
-
-      email:
-        this.form.controls.email.value.trim(),
-
-      address:
-        this.form.controls.address.value.trim()
-    };
-
     /*
      * EDIT STAFF USER
      */
@@ -277,10 +241,22 @@ export class ManageUsersNewComponent implements OnInit {
       this.userId
     ) {
 
+      const updateRequest = {
+
+        name:
+          this.form.controls.name.value.trim(),
+
+        email:
+          this.form.controls.email.value.trim(),
+
+        address:
+          this.form.controls.address.value.trim()
+      };
+
       this.staffUserApi
         .update(
           this.userId,
-          request
+          updateRequest
         )
         .subscribe({
 
@@ -318,8 +294,23 @@ export class ManageUsersNewComponent implements OnInit {
     /*
      * CREATE STAFF USER
      */
+    const createRequest = {
+
+      name:
+        this.form.controls.name.value.trim(),
+
+      email:
+        this.form.controls.email.value.trim(),
+
+      address:
+        this.form.controls.address.value.trim(),
+
+      password:
+        this.form.controls.password.value
+    };
+
     this.staffUserApi
-      .create(request)
+      .create(createRequest)
       .subscribe({
 
         next: () => {
@@ -400,6 +391,20 @@ export class ManageUsersNewComponent implements OnInit {
     );
   }
 
+  get passwordInvalid(): boolean {
+
+    const control =
+      this.form.controls.password;
+
+    return (
+      control.invalid &&
+      (
+        control.dirty ||
+        control.touched
+      )
+    );
+  }
+
   private getErrorMessage(
     error: unknown,
     defaultMessage: string
@@ -427,6 +432,13 @@ export class ManageUsersNewComponent implements OnInit {
     return defaultMessage;
   }
 }
+
+
+
+
+
+
+
 <div class="page">
 
   <div class="form-card">
@@ -450,6 +462,8 @@ export class ManageUsersNewComponent implements OnInit {
       [formGroup]="form"
       (ngSubmit)="save()">
 
+      <!-- NAME -->
+
       <div class="field">
 
         <label>
@@ -463,6 +477,7 @@ export class ManageUsersNewComponent implements OnInit {
           placeholder="Enter name">
 
         <small *ngIf="nameInvalid">
+
           <span *ngIf="form.controls.name.errors?.['required']">
             Name is required.
           </span>
@@ -474,9 +489,13 @@ export class ManageUsersNewComponent implements OnInit {
           <span *ngIf="form.controls.name.errors?.['minlength']">
             Name must contain at least 2 characters.
           </span>
+
         </small>
 
       </div>
+
+
+      <!-- EMAIL -->
 
       <div class="field">
 
@@ -495,6 +514,9 @@ export class ManageUsersNewComponent implements OnInit {
         </small>
 
       </div>
+
+
+      <!-- ADDRESS -->
 
       <div class="field">
 
@@ -515,9 +537,47 @@ export class ManageUsersNewComponent implements OnInit {
 
       </div>
 
+
+      <!-- PASSWORD -->
+
+      <div
+        class="field"
+        *ngIf="!isEdit">
+
+        <label>
+          Password <span>*</span>
+        </label>
+
+        <input
+          type="password"
+          formControlName="password"
+          maxlength="100"
+          placeholder="Enter password">
+
+        <small *ngIf="passwordInvalid">
+
+          <span
+            *ngIf="form.controls.password.errors?.['required']">
+            Password is required.
+          </span>
+
+          <span
+            *ngIf="form.controls.password.errors?.['minlength']">
+            Password must contain at least 6 characters.
+          </span>
+
+        </small>
+
+      </div>
+
+
+      <!-- PROFILE PICTURE -->
+
       <div class="field">
 
-        <label>Profile Picture</label>
+        <label>
+          Profile Picture
+        </label>
 
         <input
           type="file"
@@ -547,17 +607,26 @@ export class ManageUsersNewComponent implements OnInit {
 
       </div>
 
+
+      <!-- ERROR -->
+
       <div
         class="error"
         *ngIf="error">
         {{ error }}
       </div>
 
+
+      <!-- SUCCESS -->
+
       <div
         class="success"
         *ngIf="success">
         {{ success }}
       </div>
+
+
+      <!-- ACTIONS -->
 
       <div class="actions">
 
@@ -586,3 +655,8 @@ export class ManageUsersNewComponent implements OnInit {
   </div>
 
 </div>
+
+
+
+
+
