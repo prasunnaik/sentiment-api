@@ -20,12 +20,13 @@ import {
 export class ManageUsersListComponent implements OnInit {
 
   users: StaffUser[] = [];
+
   loading = true;
   error = '';
 
   constructor(
-    private staffUserApi: StaffUserApiService,
-    private router: Router
+    private readonly staffUserApi: StaffUserApiService,
+    private readonly router: Router
   ) {}
 
   ngOnInit(): void {
@@ -33,25 +34,42 @@ export class ManageUsersListComponent implements OnInit {
   }
 
   loadUsers(): void {
+
     this.loading = true;
+    this.error = '';
 
     this.staffUserApi.getAll().subscribe({
-      next: users => {
+
+      next: (users) => {
+
         this.users = users;
         this.loading = false;
       },
-      error: () => {
-        this.error = 'Unable to load staff users.';
+
+      error: (error: unknown) => {
+
+        console.error(
+          'Unable to load staff users.',
+          error
+        );
+
+        this.error =
+          'Unable to load staff users.';
+
         this.loading = false;
       }
     });
   }
 
   addUser(): void {
-    this.router.navigate(['/staff/manage-users/new']);
+
+    this.router.navigate([
+      '/staff/manage-users/new'
+    ]);
   }
 
   editUser(id: string): void {
+
     this.router.navigate([
       '/staff/manage-users',
       id,
@@ -61,122 +79,238 @@ export class ManageUsersListComponent implements OnInit {
 
   deleteUser(user: StaffUser): void {
 
-    const confirmed = window.confirm(
-      `Delete staff user "${user.name}"?`
-    );
+    const confirmed =
+      window.confirm(
+        `Delete staff user "${user.fullName}"?`
+      );
 
     if (!confirmed) {
       return;
     }
 
-    this.staffUserApi.delete(user.id).subscribe({
-      next: () => {
-        this.loadUsers();
-      },
-      error: () => {
-        this.error = 'Unable to delete staff user.';
-      }
-    });
+    this.error = '';
+
+    this.staffUserApi
+      .delete(user.id)
+      .subscribe({
+
+        next: () => {
+
+          this.loadUsers();
+        },
+
+        error: (error: unknown) => {
+
+          console.error(
+            'Unable to delete staff user.',
+            error
+          );
+
+          this.error =
+            'Unable to delete staff user.';
+        }
+      });
   }
 }
+
+
+
+
 <div class="page">
 
+  <!-- HEADER -->
+
   <div class="header">
+
     <div>
       <h2>Manage Users</h2>
-      <p>View and manage staff users</p>
+
+      <p>
+        View and manage staff users
+      </p>
     </div>
 
     <button
       class="primary-button"
       type="button"
       (click)="addUser()">
+
       + Add User
+
     </button>
+
   </div>
 
-  <div *ngIf="loading">
+
+  <!-- LOADING -->
+
+  <div
+    *ngIf="loading"
+    class="loading">
+
     Loading users...
+
   </div>
 
-  <div *ngIf="error" class="error">
+
+  <!-- ERROR -->
+
+  <div
+    *ngIf="error"
+    class="error">
+
     {{ error }}
+
   </div>
 
-  <div class="table-container" *ngIf="!loading">
+
+  <!-- TABLE -->
+
+  <div
+    class="table-container"
+    *ngIf="!loading">
 
     <table>
+
       <thead>
+
         <tr>
+
           <th>NAME</th>
+
           <th>EMAIL</th>
+
           <th>ADDRESS</th>
+
           <th>ACTIONS</th>
+
         </tr>
+
       </thead>
+
 
       <tbody>
 
-        <tr *ngFor="let user of users">
+        <!-- STAFF USERS -->
+
+        <tr
+          *ngFor="let user of users">
 
           <td>
+
             <div class="user-cell">
+
+              <!-- Profile Picture -->
 
               <img
                 *ngIf="user.profilePictureUrl"
                 [src]="user.profilePictureUrl"
-                alt="Profile">
+                alt="Profile picture">
+
+
+              <!-- Default Avatar -->
 
               <div
                 *ngIf="!user.profilePictureUrl"
                 class="avatar">
-                {{ user.name.charAt(0).toUpperCase() }}
+
+                {{ user.fullName.charAt(0).toUpperCase() }}
+
               </div>
 
-              <span>{{ user.name }}</span>
+
+              <!-- Full Name -->
+
+              <span>
+                {{ user.fullName }}
+              </span>
 
             </div>
+
           </td>
 
-          <td>{{ user.email }}</td>
 
-          <td>{{ user.address }}</td>
+          <!-- EMAIL -->
 
-          <td class="actions">
+          <td>
+            {{ user.email }}
+          </td>
 
-            <button
-              type="button"
-              class="edit"
-              (click)="editUser(user.id)">
-              Edit
-            </button>
 
-            <button
-              type="button"
-              class="delete"
-              (click)="deleteUser(user)">
-              Delete
-            </button>
+          <!-- ADDRESS -->
+
+          <td>
+            {{ user.address }}
+          </td>
+
+
+          <!-- ACTIONS -->
+
+          <td>
+
+            <div class="actions">
+
+              <button
+                type="button"
+                class="edit"
+                (click)="editUser(user.id)">
+
+                Edit
+
+              </button>
+
+
+              <button
+                type="button"
+                class="delete"
+                (click)="deleteUser(user)">
+
+                Delete
+
+              </button>
+
+            </div>
 
           </td>
 
         </tr>
 
-        <tr *ngIf="users.length === 0">
-          <td colspan="4">
+
+        <!-- NO USERS -->
+
+        <tr
+          *ngIf="users.length === 0">
+
+          <td
+            colspan="4"
+            class="empty">
+
             No staff users found.
+
           </td>
+
         </tr>
 
       </tbody>
+
     </table>
 
   </div>
 
 </div>
+
+
+
+
+
 .page {
   padding: 24px;
 }
+
+
+/* =========================
+   HEADER
+   ========================= */
 
 .header {
   display: flex;
@@ -187,18 +321,47 @@ export class ManageUsersListComponent implements OnInit {
 
 .header h2 {
   margin: 0;
+  font-size: 26px;
 }
 
 .header p {
+  margin: 6px 0 0;
   color: #777;
 }
+
+
+/* =========================
+   ADD USER BUTTON
+   ========================= */
 
 .primary-button {
   border: 0;
   border-radius: 5px;
   padding: 10px 18px;
   cursor: pointer;
+  background: #008c95;
+  color: white;
+  font-size: 14px;
 }
+
+.primary-button:hover {
+  background: #00747b;
+}
+
+
+/* =========================
+   LOADING
+   ========================= */
+
+.loading {
+  padding: 20px 0;
+  color: #777;
+}
+
+
+/* =========================
+   TABLE
+   ========================= */
 
 .table-container {
   background: white;
@@ -222,7 +385,18 @@ td {
 th {
   font-size: 12px;
   color: #666;
+  font-weight: 600;
+  background: #fafafa;
 }
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+
+/* =========================
+   USER CELL
+   ========================= */
 
 .user-cell {
   display: flex;
@@ -235,6 +409,7 @@ th {
   width: 36px;
   height: 36px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .user-cell img {
@@ -246,7 +421,18 @@ th {
   align-items: center;
   justify-content: center;
   background: #eee;
+  color: #555;
+  font-weight: 600;
 }
+
+.user-cell span {
+  font-weight: 500;
+}
+
+
+/* =========================
+   ACTIONS
+   ========================= */
 
 .actions {
   display: flex;
@@ -259,10 +445,16 @@ th {
   padding: 6px 10px;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 13px;
 }
 
 .edit {
   border: 1px solid #888;
+  color: #444;
+}
+
+.edit:hover {
+  background: #f5f5f5;
 }
 
 .delete {
@@ -270,9 +462,58 @@ th {
   color: #c00;
 }
 
-.error {
-  color: #c62828;
+.delete:hover {
+  background: #fff5f5;
 }
 
 
+/* =========================
+   ERROR
+   ========================= */
 
+.error {
+  color: #c62828;
+  margin: 12px 0;
+  padding: 10px;
+  background: #fff5f5;
+  border-radius: 5px;
+}
+
+
+/* =========================
+   EMPTY STATE
+   ========================= */
+
+.empty {
+  text-align: center;
+  color: #777;
+  padding: 30px;
+}
+
+
+/* =========================
+   RESPONSIVE
+   ========================= */
+
+@media (max-width: 700px) {
+
+  .page {
+    padding: 16px;
+  }
+
+  .header {
+    align-items: flex-start;
+    gap: 15px;
+    flex-direction: column;
+  }
+
+  .primary-button {
+    width: 100%;
+  }
+
+  th,
+  td {
+    padding: 10px;
+  }
+
+}
