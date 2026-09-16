@@ -1,215 +1,248 @@
-<div class="page">
-
-  <div class="page-header">
-    <div>
-      <h2>Dashboard</h2>
-      <p>Overview of insurance platform activity</p>
-    </div>
-  </div>
-
-  <div *ngIf="loading" class="message">
-    Loading dashboard...
-  </div>
-
-  <div *ngIf="error" class="error">
-    {{ error }}
-  </div>
-
-  <div class="stats-grid" *ngIf="!loading">
-
-    <div class="stat-card">
-      <span>Staff Users</span>
-      <strong>{{ metrics.staff }}</strong>
-    </div>
-
-    <div class="stat-card">
-      <span>Customers</span>
-      <strong>{{ metrics.customers }}</strong>
-    </div>
-
-    <div class="stat-card">
-      <span>Categories</span>
-      <strong>{{ metrics.categories }}</strong>
-    </div>
-
-    <div class="stat-card">
-      <span>Policies</span>
-      <strong>{{ metrics.policies }}</strong>
-    </div>
-
-    <div class="stat-card">
-      <span>Active Policies</span>
-      <strong>{{ metrics.activePolicies }}</strong>
-    </div>
-
-    <div class="stat-card">
-      <span>Applications</span>
-      <strong>{{ metrics.applications }}</strong>
-    </div>
-
-    <div class="stat-card">
-      <span>Claims</span>
-      <strong>{{ metrics.claims }}</strong>
-    </div>
-
-    <div class="stat-card">
-      <span>Payments</span>
-      <strong>{{ metrics.payments }}</strong>
-    </div>
-
-  </div>
-
-</div>
-
-
-
-
-
-
-
-.page {
-  padding: 24px;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-.page-header h2 {
-  margin: 0;
-}
-
-.page-header p {
-  margin-top: 6px;
-  color: #777;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 18px;
-}
-
-.stat-card {
-  background: white;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  padding: 20px;
-}
-
-.stat-card span {
-  display: block;
-  color: #666;
-  margin-bottom: 12px;
-}
-
-.stat-card strong {
-  font-size: 28px;
-}
-
-.message {
-  padding: 20px;
-}
-
-.error {
-  color: #c62828;
-}
-
-@media (max-width: 900px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-
-
-
-
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
-
 import {
-  StaffUser
-} from '../../../types/br04-br05.types';
+  FormBuilder,
+  ReactiveFormsModule,
+  Validators
+} from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 
 import {
   StaffUserApiService
 } from '../../../services/api/staff-user-api.service';
 
 @Component({
-  selector: 'app-manage-users-list',
+  selector: 'app-manage-users-new',
   standalone: true,
-  imports: [CommonModule],
-  templateUrl: './manage-users-list.component.html',
-  styleUrls: ['./manage-users-list.component.css']
+  imports: [
+    CommonModule,
+    ReactiveFormsModule
+  ],
+  templateUrl: './manage-users-new.component.html',
+  styleUrls: ['./manage-users-new.component.css']
 })
-export class ManageUsersListComponent implements OnInit {
+export class ManageUsersNewComponent implements OnInit {
 
-  users: StaffUser[] = [];
-  loading = true;
+  userId: string | null = null;
+  isEdit = false;
+
+  loading = false;
+  saving = false;
   error = '';
+  success = '';
+
+  selectedFile: File | null = null;
+  previewUrl: string | null = null;
+
+  form = this.fb.nonNullable.group({
+
+    name: [
+      '',
+      [
+        Validators.required,
+        Validators.minLength(2),
+        Validators.maxLength(100),
+        Validators.pattern(/^[A-Za-z]+(?:[ '-][A-Za-z]+)*$/)
+      ]
+    ],
+
+    email: [
+      '',
+      [
+        Validators.required,
+        Validators.email,
+        Validators.maxLength(150)
+      ]
+    ],
+
+    address: [
+      '',
+      [
+        Validators.required,
+        Validators.minLength(5),
+        Validators.maxLength(250)
+      ]
+    ]
+
+  });
 
   constructor(
+    private fb: FormBuilder,
     private staffUserApi: StaffUserApiService,
+    private route: ActivatedRoute,
     private router: Router
   ) {}
 
   ngOnInit(): void {
-    this.loadUsers();
+
+    this.userId = this.route.snapshot.paramMap.get('id');
+    this.isEdit = !!this.userId;
+
+    if (this.userId) {
+      this.loadUser(this.userId);
+    }
   }
 
-  loadUsers(): void {
+  loadUser(id: string): void {
+
     this.loading = true;
 
-    this.staffUserApi.getAll().subscribe({
-      next: users => {
-        this.users = users;
+    this.staffUserApi.getById(id).subscribe({
+      next: user => {
+
+        this.form.patchValue({
+          name: user.name,
+          email: user.email,
+          address: user.address
+        });
+
+        this.previewUrl = user.profilePictureUrl ?? null;
+
         this.loading = false;
       },
+
       error: () => {
-        this.error = 'Unable to load staff users.';
+        this.error = 'Unable to load staff user.';
         this.loading = false;
       }
     });
   }
 
-  addUser(): void {
-    this.router.navigate(['/staff/manage-users/new']);
-  }
+  onFileSelected(event: Event): void {
 
-  editUser(id: string): void {
-    this.router.navigate([
-      '/staff/manage-users',
-      id,
-      'edit'
-    ]);
-  }
+    const input = event.target as HTMLInputElement;
 
-  deleteUser(user: StaffUser): void {
-
-    const confirmed = window.confirm(
-      `Delete staff user "${user.name}"?`
-    );
-
-    if (!confirmed) {
+    if (!input.files || input.files.length === 0) {
       return;
     }
 
-    this.staffUserApi.delete(user.id).subscribe({
-      next: () => {
-        this.loadUsers();
-      },
-      error: () => {
-        this.error = 'Unable to delete staff user.';
-      }
-    });
+    const file = input.files[0];
+
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp'
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      this.error = 'Only JPG, PNG or WEBP images are allowed.';
+      input.value = '';
+      return;
+    }
+
+    const maxSize = 5 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+      this.error = 'Profile picture must be 5 MB or smaller.';
+      input.value = '';
+      return;
+    }
+
+    this.error = '';
+    this.selectedFile = file;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      this.previewUrl = reader.result as string;
+    };
+
+    reader.readAsDataURL(file);
+  }
+
+  removeSelectedPicture(): void {
+    this.selectedFile = null;
+    this.previewUrl = null;
+  }
+
+  save(): void {
+
+    this.error = '';
+    this.success = '';
+
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    this.saving = true;
+
+    const request = {
+      name: this.form.controls.name.value.trim(),
+      email: this.form.controls.email.value.trim(),
+      address: this.form.controls.address.value.trim()
+    };
+
+    if (this.isEdit && this.userId) {
+
+      this.staffUserApi
+        .update(this.userId, request)
+        .subscribe({
+          next: () => {
+            this.saving = false;
+            this.success = 'Staff user updated successfully.';
+
+            setTimeout(() => {
+              this.router.navigate([
+                '/staff/manage-users'
+              ]);
+            }, 700);
+          },
+
+          error: error => {
+            this.saving = false;
+            this.error =
+              error?.error?.message ??
+              'Unable to update staff user.';
+          }
+        });
+
+    } else {
+
+      this.staffUserApi
+        .create(request)
+        .subscribe({
+          next: () => {
+            this.saving = false;
+            this.success = 'Staff user created successfully.';
+
+            setTimeout(() => {
+              this.router.navigate([
+                '/staff/manage-users'
+              ]);
+            }, 700);
+          },
+
+          error: error => {
+            this.saving = false;
+            this.error =
+              error?.error?.message ??
+              'Unable to create staff user.';
+          }
+        });
+
+    }
+  }
+
+  cancel(): void {
+    this.router.navigate([
+      '/staff/manage-users'
+    ]);
+  }
+
+  get nameInvalid(): boolean {
+    const control = this.form.controls.name;
+    return control.invalid && (control.dirty || control.touched);
+  }
+
+  get emailInvalid(): boolean {
+    const control = this.form.controls.email;
+    return control.invalid && (control.dirty || control.touched);
+  }
+
+  get addressInvalid(): boolean {
+    const control = this.form.controls.address;
+    return control.invalid && (control.dirty || control.touched);
   }
 }
 
@@ -217,98 +250,161 @@ export class ManageUsersListComponent implements OnInit {
 
 
 
-
 <div class="page">
 
-  <div class="header">
-    <div>
-      <h2>Manage Users</h2>
-      <p>View and manage staff users</p>
+  <div class="form-card">
+
+    <h2>
+      {{ isEdit ? 'Edit Staff User' : 'Add Staff User' }}
+    </h2>
+
+    <p class="subtitle">
+      {{ isEdit
+        ? 'Update staff account details'
+        : 'Create a new staff account' }}
+    </p>
+
+    <div *ngIf="loading">
+      Loading...
     </div>
 
-    <button
-      class="primary-button"
-      type="button"
-      (click)="addUser()">
-      + Add User
-    </button>
-  </div>
+    <form
+      *ngIf="!loading"
+      [formGroup]="form"
+      (ngSubmit)="save()">
 
-  <div *ngIf="loading">
-    Loading users...
-  </div>
+      <div class="field">
 
-  <div *ngIf="error" class="error">
-    {{ error }}
-  </div>
+        <label>
+          Name <span>*</span>
+        </label>
 
-  <div class="table-container" *ngIf="!loading">
+        <input
+          type="text"
+          formControlName="name"
+          maxlength="100"
+          placeholder="Enter name">
 
-    <table>
-      <thead>
-        <tr>
-          <th>NAME</th>
-          <th>EMAIL</th>
-          <th>ADDRESS</th>
-          <th>ACTIONS</th>
-        </tr>
-      </thead>
+        <small *ngIf="nameInvalid">
+          <span *ngIf="form.controls.name.errors?.['required']">
+            Name is required.
+          </span>
 
-      <tbody>
+          <span *ngIf="form.controls.name.errors?.['pattern']">
+            Name can contain letters, spaces, apostrophes and hyphens only.
+          </span>
 
-        <tr *ngFor="let user of users">
+          <span *ngIf="form.controls.name.errors?.['minlength']">
+            Name must contain at least 2 characters.
+          </span>
+        </small>
 
-          <td>
-            <div class="user-cell">
+      </div>
 
-              <img
-                *ngIf="user.profilePictureUrl"
-                [src]="user.profilePictureUrl"
-                alt="Profile">
+      <div class="field">
 
-              <div
-                *ngIf="!user.profilePictureUrl"
-                class="avatar">
-                {{ user.name.charAt(0).toUpperCase() }}
-              </div>
+        <label>
+          Email <span>*</span>
+        </label>
 
-              <span>{{ user.name }}</span>
+        <input
+          type="email"
+          formControlName="email"
+          maxlength="150"
+          placeholder="Enter email">
 
-            </div>
-          </td>
+        <small *ngIf="emailInvalid">
+          Please enter a valid email address.
+        </small>
 
-          <td>{{ user.email }}</td>
+      </div>
 
-          <td>{{ user.address }}</td>
+      <div class="field">
 
-          <td class="actions">
+        <label>
+          Address <span>*</span>
+        </label>
 
-            <button
-              type="button"
-              class="edit"
-              (click)="editUser(user.id)">
-              Edit
-            </button>
+        <textarea
+          rows="4"
+          formControlName="address"
+          maxlength="250"
+          placeholder="Enter address">
+        </textarea>
 
-            <button
-              type="button"
-              class="delete"
-              (click)="deleteUser(user)">
-              Delete
-            </button>
+        <small *ngIf="addressInvalid">
+          Address is required and must contain valid text.
+        </small>
 
-          </td>
+      </div>
 
-        </tr>
+      <div class="field">
 
-        <tr *ngIf="users.length === 0">
-          <td colspan="4">
-            No staff users found.
-          </td>
-        </tr>
+        <label>Profile Picture</label>
 
-      </tbody>
-    </table>
+        <input
+          type="file"
+          accept=".jpg,.jpeg,.png,.webp"
+          (change)="onFileSelected($event)">
+
+        <div
+          class="preview"
+          *ngIf="previewUrl">
+
+          <img
+            [src]="previewUrl"
+            alt="Profile preview">
+
+          <button
+            type="button"
+            class="remove"
+            (click)="removeSelectedPicture()">
+            Remove
+          </button>
+
+        </div>
+
+        <small>
+          JPG, PNG or WEBP. Maximum size: 5 MB.
+        </small>
+
+      </div>
+
+      <div
+        class="error"
+        *ngIf="error">
+        {{ error }}
+      </div>
+
+      <div
+        class="success"
+        *ngIf="success">
+        {{ success }}
+      </div>
+
+      <div class="actions">
+
+        <button
+          type="button"
+          class="secondary"
+          (click)="cancel()">
+          Cancel
+        </button>
+
+        <button
+          type="submit"
+          class="primary"
+          [disabled]="saving">
+
+          {{ saving
+            ? 'Saving...'
+            : (isEdit ? 'Update User' : 'Add User') }}
+
+        </button>
+
+      </div>
+
+    </form>
 
   </div>
 
@@ -318,107 +414,123 @@ export class ManageUsersListComponent implements OnInit {
 
 
 
+
 .page {
   padding: 24px;
 }
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.header h2 {
-  margin: 0;
-}
-
-.header p {
-  color: #777;
-}
-
-.primary-button {
-  border: 0;
-  border-radius: 5px;
-  padding: 10px 18px;
-  cursor: pointer;
-}
-
-.table-container {
+.form-card {
   background: white;
   border: 1px solid #e5e5e5;
   border-radius: 8px;
-  overflow-x: auto;
+  padding: 28px;
+  max-width: 700px;
 }
 
-table {
+.form-card h2 {
+  margin: 0;
+}
+
+.subtitle {
+  color: #777;
+  margin-bottom: 24px;
+}
+
+.field {
+  margin-bottom: 20px;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 7px;
+}
+
+label span {
+  color: #c62828;
+}
+
+input,
+textarea {
   width: 100%;
-  border-collapse: collapse;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
 }
 
-th,
-td {
-  padding: 14px;
-  text-align: left;
-  border-bottom: 1px solid #eee;
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: #008c95;
 }
 
-th {
-  font-size: 12px;
-  color: #666;
+small {
+  display: block;
+  margin-top: 5px;
+  color: #777;
 }
 
-.user-cell {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+small span {
+  color: #c62828;
 }
 
-.user-cell img,
-.avatar {
-  width: 36px;
-  height: 36px;
+.preview {
+  margin-top: 12px;
+}
+
+.preview img {
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
-}
-
-.user-cell img {
   object-fit: cover;
+  display: block;
+  margin-bottom: 8px;
 }
 
-.avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #eee;
+.remove {
+  border: 1px solid #c62828;
+  color: #c62828;
+  background: white;
+  padding: 6px 10px;
+  border-radius: 4px;
 }
 
 .actions {
   display: flex;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 25px;
 }
 
-.edit,
-.delete {
-  background: transparent;
-  padding: 6px 10px;
-  border-radius: 4px;
+.primary,
+.secondary {
+  padding: 10px 18px;
+  border-radius: 5px;
   cursor: pointer;
 }
 
-.edit {
-  border: 1px solid #888;
+.primary {
+  border: 0;
 }
 
-.delete {
-  border: 1px solid #d66;
-  color: #c00;
+.secondary {
+  border: 1px solid #aaa;
+  background: white;
+}
+
+.primary:disabled {
+  opacity: 0.6;
 }
 
 .error {
   color: #c62828;
+  margin: 12px 0;
 }
 
-
-
+.success {
+  color: #2e7d32;
+  margin: 12px 0;
+}
 
 
