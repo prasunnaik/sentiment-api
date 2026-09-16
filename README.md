@@ -1,475 +1,336 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import {
-  FormBuilder,
-  FormControl,
-  FormGroup,
-  ReactiveFormsModule,
-  Validators
-} from '@angular/forms';
-import {
-  ActivatedRoute,
-  Router
-} from '@angular/router';
-
-import {
-  StaffUserApiService
-} from '../../../services/api/staff-user-api.service';
-
-import {
-  StaffCreateRequest,
-  StaffUpdateRequest
-} from '../../../types/br04-05.types';
-
-@Component({
-  selector: 'app-manage-users-new',
-  standalone: true,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule
-  ],
-  templateUrl: './manage-users-new.component.html',
-  styleUrls: ['./manage-users-new.component.css']
-})
-export class ManageUsersNewComponent implements OnInit {
-
-  userId: string | null = null;
-  isEdit = false;
-
-  loading = false;
-  saving = false;
-
-  error = '';
-  success = '';
-
-  selectedFile: File | null = null;
-  previewUrl: string | null = null;
-
-  form: FormGroup<{
-    fullname: FormControl<string>;
-    email: FormControl<string>;
-    address: FormControl<string>;
-    password: FormControl<string>;
-  }>;
-
-  constructor(
-    private readonly fb: FormBuilder,
-    private readonly staffUserApi: StaffUserApiService,
-    private readonly route: ActivatedRoute,
-    private readonly router: Router
-  ) {
-
-    this.form = this.fb.nonNullable.group({
-
-      fullname: [
-        '',
-        [
-          Validators.required,
-          Validators.minLength(2),
-          Validators.maxLength(100),
-          Validators.pattern(
-            /^[A-Za-z]+(?:[ '-][A-Za-z]+)*$/
-          )
-        ]
-      ],
-
-      email: [
-        '',
-        [
-          Validators.required,
-          Validators.email,
-          Validators.maxLength(150)
-        ]
-      ],
-
-      address: [
-        '',
-        [
-          Validators.required,
-          Validators.minLength(5),
-          Validators.maxLength(250)
-        ]
-      ],
-
-      password: [
-        '',
-        [
-          Validators.required,
-          Validators.minLength(6),
-          Validators.maxLength(100)
-        ]
-      ]
-    });
-  }
+<div class="page">
 
-  ngOnInit(): void {
+  <div class="form-card">
 
-    this.userId =
-      this.route.snapshot.paramMap.get('id');
+    <h2>
+      {{ isEdit ? 'Edit Staff User' : 'Add Staff User' }}
+    </h2>
 
-    this.isEdit = !!this.userId;
+    <p class="subtitle">
+      {{ isEdit
+        ? 'Update staff account details'
+        : 'Create a new staff account' }}
+    </p>
 
-    /*
-     * Password is required only when creating
-     * a new staff user.
-     *
-     * During edit, password is not sent.
-     */
-    if (this.isEdit) {
+    <div *ngIf="loading">
+      Loading...
+    </div>
 
-      this.form.controls.password.clearValidators();
+    <form
+      *ngIf="!loading"
+      [formGroup]="form"
+      (ngSubmit)="save()">
 
-      this.form.controls.password.updateValueAndValidity();
-    }
+      <!-- NAME -->
 
-    if (this.userId) {
+      <div class="field">
 
-      this.loadUser(this.userId);
-    }
-  }
+        <label>
+          Name <span>*</span>
+        </label>
 
-  loadUser(id: string): void {
+        <input
+          type="text"
+          formControlName="name"
+          maxlength="100"
+          placeholder="Enter name">
 
-    this.loading = true;
-    this.error = '';
+        <small *ngIf="nameInvalid">
 
-    this.staffUserApi.getById(id).subscribe({
+          <span *ngIf="form.controls.name.errors?.['required']">
+            Name is required.
+          </span>
 
-      next: (user) => {
+          <span *ngIf="form.controls.name.errors?.['pattern']">
+            Name can contain letters, spaces, apostrophes and hyphens only.
+          </span>
 
-        /*
-         * Backend returns fullName.
-         *
-         * Angular form control is called fullname.
-         */
-        this.form.patchValue({
+          <span *ngIf="form.controls.name.errors?.['minlength']">
+            Name must contain at least 2 characters.
+          </span>
 
-          fullname:
-            user.fullName,
+        </small>
 
-          email:
-            user.email,
+      </div>
 
-          address:
-            user.address
-        });
 
-        this.previewUrl =
-          user.profilePictureUrl ?? null;
+      <!-- EMAIL -->
 
-        this.loading = false;
-      },
+      <div class="field">
 
-      error: (error: unknown) => {
+        <label>
+          Email <span>*</span>
+        </label>
 
-        console.error(
-          'Unable to load staff user.',
-          error
-        );
+        <input
+          type="email"
+          formControlName="email"
+          maxlength="150"
+          placeholder="Enter email">
 
-        this.error =
-          'Unable to load staff user.';
+        <small *ngIf="emailInvalid">
+          Please enter a valid email address.
+        </small>
 
-        this.loading = false;
-      }
-    });
-  }
+      </div>
 
-  onFileSelected(event: Event): void {
 
-    const input =
-      event.target as HTMLInputElement;
+      <!-- ADDRESS -->
 
-    if (
-      !input.files ||
-      input.files.length === 0
-    ) {
-      return;
-    }
+      <div class="field">
 
-    const file =
-      input.files[0];
+        <label>
+          Address <span>*</span>
+        </label>
 
-    const allowedTypes = [
-      'image/jpeg',
-      'image/png',
-      'image/webp'
-    ];
+        <textarea
+          rows="4"
+          formControlName="address"
+          maxlength="250"
+          placeholder="Enter address">
+        </textarea>
 
-    if (!allowedTypes.includes(file.type)) {
+        <small *ngIf="addressInvalid">
+          Address is required and must contain valid text.
+        </small>
 
-      this.error =
-        'Only JPG, PNG or WEBP images are allowed.';
+      </div>
 
-      input.value = '';
 
-      this.selectedFile = null;
+      <!-- PASSWORD -->
 
-      return;
-    }
+      <div
+        class="field"
+        *ngIf="!isEdit">
 
-    const maxSize =
-      5 * 1024 * 1024;
+        <label>
+          Password <span>*</span>
+        </label>
 
-    if (file.size > maxSize) {
+        <input
+          type="password"
+          formControlName="password"
+          maxlength="100"
+          placeholder="Enter password">
 
-      this.error =
-        'Profile picture must be 5 MB or smaller.';
+        <small *ngIf="passwordInvalid">
 
-      input.value = '';
+          <span
+            *ngIf="form.controls.password.errors?.['required']">
+            Password is required.
+          </span>
 
-      this.selectedFile = null;
+          <span
+            *ngIf="form.controls.password.errors?.['minlength']">
+            Password must contain at least 6 characters.
+          </span>
 
-      return;
-    }
+        </small>
 
-    this.error = '';
+      </div>
 
-    this.selectedFile = file;
 
-    /*
-     * Create local preview.
-     */
-    const reader =
-      new FileReader();
+      <!-- PROFILE PICTURE -->
 
-    reader.onload = () => {
+      <div class="field">
 
-      this.previewUrl =
-        reader.result as string;
-    };
+        <label>
+          Profile Picture
+        </label>
 
-    reader.readAsDataURL(file);
-  }
+        <input
+          type="file"
+          accept=".jpg,.jpeg,.png,.webp"
+          (change)="onFileSelected($event)">
 
-  removeSelectedPicture(): void {
+        <div
+          class="preview"
+          *ngIf="previewUrl">
 
-    this.selectedFile = null;
+          <img
+            [src]="previewUrl"
+            alt="Profile preview">
 
-    this.previewUrl = null;
-  }
+          <button
+            type="button"
+            class="remove"
+            (click)="removeSelectedPicture()">
+            Remove
+          </button>
 
-  save(): void {
+        </div>
 
-    this.error = '';
-    this.success = '';
+        <small>
+          JPG, PNG or WEBP. Maximum size: 5 MB.
+        </small>
 
-    /*
-     * Validate form.
-     */
-    if (this.form.invalid) {
+      </div>
 
-      this.form.markAllAsTouched();
 
-      return;
-    }
+      <!-- ERROR -->
 
-    this.saving = true;
+      <div
+        class="error"
+        *ngIf="error">
+        {{ error }}
+      </div>
 
-    /*
-     * =========================
-     * EDIT STAFF USER
-     * =========================
-     */
-    if (
-      this.isEdit &&
-      this.userId
-    ) {
 
-      const updateRequest: StaffUpdateRequest = {
+      <!-- SUCCESS -->
 
-        fullName:
-          this.form.controls.fullname.value.trim(),
+      <div
+        class="success"
+        *ngIf="success">
+        {{ success }}
+      </div>
 
-        email:
-          this.form.controls.email.value.trim(),
 
-        address:
-          this.form.controls.address.value.trim()
-      };
+      <!-- ACTIONS -->
 
-      this.staffUserApi
-        .update(
-          this.userId,
-          updateRequest
-        )
-        .subscribe({
+      <div class="actions">
 
-          next: () => {
+        <button
+          type="button"
+          class="secondary"
+          (click)="cancel()">
+          Cancel
+        </button>
 
-            this.saving = false;
+        <button
+          type="submit"
+          class="primary"
+          [disabled]="saving">
 
-            this.success =
-              'Staff user updated successfully.';
+          {{ saving
+            ? 'Saving...'
+            : (isEdit ? 'Update User' : 'Add User') }}
 
-            setTimeout(() => {
+        </button>
 
-              this.router.navigate([
-                '/staff/manage-users'
-              ]);
+      </div>
 
-            }, 700);
-          },
+    </form>
 
-          error: (error: unknown) => {
+  </div>
 
-            this.saving = false;
+</div>
 
-            this.error =
-              this.getErrorMessage(
-                error,
-                'Unable to update staff user.'
-              );
-          }
-        });
-
-      return;
-    }
-
-    /*
-     * =========================
-     * CREATE STAFF USER
-     * =========================
-     *
-     * IMPORTANT:
-     * Backend expects "fullName",
-     * not "name" or "fullname".
-     */
-    const createRequest: StaffCreateRequest = {
-
-      fullName:
-        this.form.controls.fullname.value.trim(),
-
-      email:
-        this.form.controls.email.value.trim(),
-
-      address:
-        this.form.controls.address.value.trim(),
-
-      password:
-        this.form.controls.password.value
-    };
-
-    this.staffUserApi
-      .create(createRequest)
-      .subscribe({
-
-        next: () => {
-
-          this.saving = false;
-
-          this.success =
-            'Staff user created successfully.';
-
-          setTimeout(() => {
-
-            this.router.navigate([
-              '/staff/manage-users'
-            ]);
-
-          }, 700);
-        },
-
-        error: (error: unknown) => {
-
-          this.saving = false;
-
-          this.error =
-            this.getErrorMessage(
-              error,
-              'Unable to create staff user.'
-            );
-        }
-      });
-  }
-
-  cancel(): void {
-
-    this.router.navigate([
-      '/staff/manage-users'
-    ]);
-  }
-
-  get fullnameInvalid(): boolean {
-
-    const control =
-      this.form.controls.fullname;
-
-    return (
-      control.invalid &&
-      (
-        control.dirty ||
-        control.touched
-      )
-    );
-  }
-
-  get emailInvalid(): boolean {
-
-    const control =
-      this.form.controls.email;
-
-    return (
-      control.invalid &&
-      (
-        control.dirty ||
-        control.touched
-      )
-    );
-  }
-
-  get addressInvalid(): boolean {
-
-    const control =
-      this.form.controls.address;
-
-    return (
-      control.invalid &&
-      (
-        control.dirty ||
-        control.touched
-      )
-    );
-  }
-
-  get passwordInvalid(): boolean {
-
-    const control =
-      this.form.controls.password;
-
-    return (
-      control.invalid &&
-      (
-        control.dirty ||
-        control.touched
-      )
-    );
-  }
-
-  private getErrorMessage(
-    error: unknown,
-    defaultMessage: string
-  ): string {
-
-    if (
-      error !== null &&
-      typeof error === 'object' &&
-      'error' in error
-    ) {
-
-      const response =
-        error as {
-          error?: {
-            message?: string;
-          };
-        };
-
-      return (
-        response.error?.message ??
-        defaultMessage
-      );
-    }
-
-    return defaultMessage;
-  }
+.page {
+  padding: 24px;
 }
+
+.form-card {
+  background: white;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 28px;
+  max-width: 700px;
+}
+
+.form-card h2 {
+  margin: 0;
+}
+
+.subtitle {
+  color: #777;
+  margin-bottom: 24px;
+}
+
+.field {
+  margin-bottom: 20px;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 7px;
+}
+
+label span {
+  color: #c62828;
+}
+
+input,
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: #008c95;
+}
+
+small {
+  display: block;
+  margin-top: 5px;
+  color: #777;
+}
+
+small span {
+  color: #c62828;
+}
+
+.preview {
+  margin-top: 12px;
+}
+
+.preview img {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.remove {
+  border: 1px solid #c62828;
+  color: #c62828;
+  background: white;
+  padding: 6px 10px;
+  border-radius: 4px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 25px;
+}
+
+.primary,
+.secondary {
+  padding: 10px 18px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.primary {
+  border: 0;
+}
+
+.secondary {
+  border: 1px solid #aaa;
+  background: white;
+}
+
+.primary:disabled {
+  opacity: 0.6;
+}
+
+.error {
+  color: #c62828;
+  margin: 12px 0;
+}
+
+.success {
+  color: #2e7d32;
+  margin: 12px 0;
+}
+
+
