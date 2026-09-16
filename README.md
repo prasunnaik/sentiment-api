@@ -1,243 +1,329 @@
-export const API_CONFIG = {
-  baseUrl: 'http://localhost:8080'
-};
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+import { API_CONFIG } from '../../core/environment/api.config';
+import { DashboardMetrics } from '../../types/br04-br05.types';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class DashboardApiService {
+
+  private readonly url =
+    `${API_CONFIG.baseUrl}/api/dashboard/metrics`;
+
+  constructor(private http: HttpClient) {}
+
+  getMetrics(): Observable<DashboardMetrics> {
+    return this.http.get<DashboardMetrics>(this.url);
+  }
+}
+
+
 
 
 
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
-import { API_CONFIG } from '../environment/api.config';
+import { Observable } from 'rxjs';
 
-export interface StaffLoginRequest {
-  email: string;
-  password: string;
-}
+import { API_CONFIG } from '../../core/environment/api.config';
 
-export interface LoginResponse {
-  token: string;
-  role?: string;
-  expiresIn?: number;
-}
+import {
+  StaffUser,
+  StaffCreateRequest,
+  StaffUpdateRequest
+} from '../../types/br04-br05.types';
 
 @Injectable({
   providedIn: 'root'
 })
-export class AuthService {
+export class StaffUserApiService {
 
-  private readonly TOKEN_KEY = 'insurewise_token';
-  private readonly ROLE_KEY = 'insurewise_role';
-
-  private readonly loginUrl =
-    `${API_CONFIG.baseUrl}/auth/staff/login`;
+  private readonly url =
+    `${API_CONFIG.baseUrl}/api/staff/users`;
 
   constructor(private http: HttpClient) {}
 
-  login(request: StaffLoginRequest): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(this.loginUrl, request).pipe(
-      tap(response => {
-        if (response?.token) {
-          localStorage.setItem(this.TOKEN_KEY, response.token);
+  getAll(): Observable<StaffUser[]> {
+    return this.http.get<StaffUser[]>(this.url);
+  }
 
-          if (response.role) {
-            localStorage.setItem(this.ROLE_KEY, response.role);
-          } else {
-            localStorage.setItem(this.ROLE_KEY, 'STAFF');
-          }
-        }
-      })
+  getById(id: string): Observable<StaffUser> {
+    return this.http.get<StaffUser>(
+      `${this.url}/${id}`
     );
   }
 
-  getToken(): string | null {
-    return localStorage.getItem(this.TOKEN_KEY);
+  create(request: StaffCreateRequest): Observable<StaffUser> {
+    return this.http.post<StaffUser>(
+      this.url,
+      request
+    );
   }
 
-  getRole(): string | null {
-    return localStorage.getItem(this.ROLE_KEY);
+  update(
+    id: string,
+    request: StaffUpdateRequest
+  ): Observable<StaffUser> {
+    return this.http.put<StaffUser>(
+      `${this.url}/${id}`,
+      request
+    );
   }
 
-  isLoggedIn(): boolean {
-    return !!this.getToken();
-  }
-
-  isStaff(): boolean {
-    return this.getRole() === 'STAFF';
-  }
-
-  logout(): void {
-    localStorage.removeItem(this.TOKEN_KEY);
-    localStorage.removeItem(this.ROLE_KEY);
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(
+      `${this.url}/${id}`
+    );
   }
 }
+
 
 
 
 
 import { Injectable } from '@angular/core';
-import {
-  HttpEvent,
-  HttpHandler,
-  HttpInterceptor,
-  HttpRequest
-} from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { AuthService } from '../auth/auth.service';
 
-@Injectable()
-export class AuthInterceptor implements HttpInterceptor {
+import { API_CONFIG } from '../../core/environment/api.config';
 
-  constructor(private authService: AuthService) {}
+import {
+  Policy,
+  PolicyCreateRequest,
+  Category
+} from '../../types/br04-br05.types';
 
-  intercept(
-    request: HttpRequest<unknown>,
-    next: HttpHandler
-  ): Observable<HttpEvent<unknown>> {
+@Injectable({
+  providedIn: 'root'
+})
+export class PolicyApiService {
 
-    const token = this.authService.getToken();
+  private readonly policyUrl =
+    `${API_CONFIG.baseUrl}/api/policies`;
 
-    if (!token) {
-      return next.handle(request);
-    }
+  private readonly categoryUrl =
+    `${API_CONFIG.baseUrl}/api/categories`;
 
-    const authenticatedRequest = request.clone({
-      setHeaders: {
-        Authorization: `Bearer ${token}`
+  constructor(private http: HttpClient) {}
+
+  getAll(): Observable<Policy[]> {
+    return this.http.get<Policy[]>(
+      this.policyUrl
+    );
+  }
+
+  getActive(): Observable<Policy[]> {
+    return this.http.get<Policy[]>(
+      `${this.policyUrl}/active`
+    );
+  }
+
+  create(
+    request: PolicyCreateRequest
+  ): Observable<Policy> {
+    return this.http.post<Policy>(
+      this.policyUrl,
+      request
+    );
+  }
+
+  update(
+    id: string,
+    request: PolicyCreateRequest
+  ): Observable<Policy> {
+    return this.http.put<Policy>(
+      `${this.policyUrl}/${id}`,
+      request
+    );
+  }
+
+  approve(id: string): Observable<Policy> {
+    return this.http.put<Policy>(
+      `${this.policyUrl}/${id}/approve`,
+      {}
+    );
+  }
+
+  reject(id: string): Observable<Policy> {
+    return this.http.put<Policy>(
+      `${this.policyUrl}/${id}/reject`,
+      {}
+    );
+  }
+
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(
+      `${this.policyUrl}/${id}`
+    );
+  }
+
+  getCategories(): Observable<Category[]> {
+    return this.http.get<Category[]>(
+      this.categoryUrl
+    );
+  }
+}
+
+
+
+
+
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+import { API_CONFIG } from '../../core/environment/api.config';
+
+import {
+  PolicyApplication
+} from '../../types/br04-br05.types';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class PolicyApplicationApiService {
+
+  private readonly url =
+    `${API_CONFIG.baseUrl}/api/policy-applications`;
+
+  constructor(private http: HttpClient) {}
+
+  getAll(): Observable<PolicyApplication[]> {
+    return this.http.get<PolicyApplication[]>(
+      this.url
+    );
+  }
+
+  getPending(): Observable<PolicyApplication[]> {
+    return this.http.get<PolicyApplication[]>(
+      `${this.url}/pending`
+    );
+  }
+
+  getById(id: string): Observable<PolicyApplication> {
+    return this.http.get<PolicyApplication>(
+      `${this.url}/${id}`
+    );
+  }
+
+  approve(id: string): Observable<PolicyApplication> {
+    return this.http.put<PolicyApplication>(
+      `${this.url}/${id}/approve`,
+      {}
+    );
+  }
+
+  reject(id: string): Observable<PolicyApplication> {
+    return this.http.put<PolicyApplication>(
+      `${this.url}/${id}/reject`,
+      {}
+    );
+  }
+}
+
+
+
+
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+import { API_CONFIG } from '../../core/environment/api.config';
+
+import {
+  ApplicationDocument
+} from '../../types/br04-br05.types';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ApplicationDocumentApiService {
+
+  private readonly url =
+    `${API_CONFIG.baseUrl}/api/application-documents`;
+
+  constructor(private http: HttpClient) {}
+
+  getByApplicationId(
+    applicationId: string
+  ): Observable<ApplicationDocument[]> {
+    return this.http.get<ApplicationDocument[]>(
+      `${this.url}/application/${applicationId}`
+    );
+  }
+
+  getDownloadUrl(
+    documentId: string
+  ): Observable<{ url: string }> {
+    return this.http.get<{ url: string }>(
+      `${this.url}/${documentId}/download`
+    );
+  }
+}
+
+
+
+
+
+
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+import { DashboardApiService } from '../../../services/api/dashboard-api.service';
+import { DashboardMetrics } from '../../../types/br04-br05.types';
+
+@Component({
+  selector: 'app-dashboard',
+  standalone: true,
+  imports: [CommonModule],
+  templateUrl: './dashboard.component.html',
+  styleUrls: ['./dashboard.component.css']
+})
+export class DashboardComponent implements OnInit {
+
+  metrics: DashboardMetrics = {
+    customers: 0,
+    staff: 0,
+    categories: 0,
+    policies: 0,
+    activePolicies: 0,
+    applications: 0,
+    claims: 0,
+    payments: 0
+  };
+
+  loading = true;
+  error = '';
+
+  constructor(
+    private dashboardApi: DashboardApiService
+  ) {}
+
+  ngOnInit(): void {
+    this.loadDashboard();
+  }
+
+  loadDashboard(): void {
+    this.loading = true;
+
+    this.dashboardApi.getMetrics().subscribe({
+      next: response => {
+        this.metrics = response;
+        this.loading = false;
+      },
+      error: () => {
+        this.error = 'Unable to load dashboard data.';
+        this.loading = false;
       }
     });
-
-    return next.handle(authenticatedRequest);
   }
 }
 
-
-
-
-
-import { bootstrapApplication } from '@angular/platform-browser';
-import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
-import { HTTP_INTERCEPTORS } from '@angular/common/http';
-
-import { AppComponent } from './app/app.component';
-import { AuthInterceptor } from './app/core/http/auth.interceptor';
-
-bootstrapApplication(AppComponent, {
-  providers: [
-    provideHttpClient(withInterceptorsFromDi()),
-
-    {
-      provide: HTTP_INTERCEPTORS,
-      useClass: AuthInterceptor,
-      multi: true
-    }
-  ]
-}).catch(err => console.error(err));
-
-
-
-
-
-
-import { inject } from '@angular/core';
-import {
-  CanActivateFn,
-  Router
-} from '@angular/router';
-
-import { AuthService } from '../auth/auth.service';
-
-export const staffGuard: CanActivateFn = () => {
-
-  const authService = inject(AuthService);
-  const router = inject(Router);
-
-  if (authService.isLoggedIn() && authService.isStaff()) {
-    return true;
-  }
-
-  authService.logout();
-
-  return router.createUrlTree(['/auth/staff-login']);
-};
-
-
-
-
-
-export interface DashboardMetrics {
-  customers: number;
-  staff: number;
-  categories: number;
-  policies: number;
-  activePolicies: number;
-  applications: number;
-  claims: number;
-  payments: number;
-}
-
-export interface StaffUser {
-  id: string;
-  name: string;
-  email: string;
-  address: string;
-  profilePictureUrl?: string | null;
-}
-
-export interface StaffCreateRequest {
-  name: string;
-  email: string;
-  address: string;
-}
-
-export interface StaffUpdateRequest {
-  name: string;
-  email: string;
-  address: string;
-}
-
-export interface Category {
-  id: string;
-  name: string;
-  status: string;
-}
-
-export interface Policy {
-  id: string;
-  policyName: string;
-  categoryId: string;
-  categoryName?: string;
-  premium: number;
-  coverageAmount: number;
-  duration: number;
-  status: string;
-}
-
-export interface PolicyCreateRequest {
-  policyName: string;
-  categoryId: string;
-  premium: number;
-  coverageAmount: number;
-  duration: number;
-}
-
-export interface PolicyApplication {
-  id: string;
-  applicationCode?: string;
-  policyId?: string;
-  policyName?: string;
-  customerName?: string;
-  status: string;
-  createdAt?: string;
-}
-
-export interface ApplicationDocument {
-  id: string;
-  fileName: string;
-  contentType: string;
-  s3Key: string;
-  uploadedBy?: string;
-  createdAt?: string;
-}
 
 
 
