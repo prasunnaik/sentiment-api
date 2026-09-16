@@ -1,82 +1,74 @@
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+export interface DashboardMetrics {
+  customers: number;
+  staff: number;
+  categories: number;
+  policies: number;
+  activePolicies: number;
+  applications: number;
+  claims: number;
+  payments: number;
+}
 
-import { API_CONFIG } from '../../core/environment/api.config';
+export interface StaffUser {
+  id: string;
+  name: string;
+  email: string;
+  address: string;
+  profilePictureUrl?: string | null;
+}
 
-import {
-  Policy,
-  PolicyCreateRequest,
-  Category
-} from '../../types/br04-05.types';
+export interface StaffCreateRequest {
+  name: string;
+  email: string;
+  address: string;
+}
 
-@Injectable({
-  providedIn: 'root'
-})
-export class PolicyApiService {
+export interface StaffUpdateRequest {
+  name: string;
+  email: string;
+  address: string;
+}
 
-  private readonly policyUrl =
-    `${API_CONFIG.baseUrl}/api/policies`;
+export interface Category {
+  id: string;
+  name: string;
+  status: string;
+}
 
-  private readonly categoryUrl =
-    `${API_CONFIG.baseUrl}/api/categories`;
+export interface Policy {
+  id: string;
+  policyName: string;
+  categoryId: string;
+  categoryName?: string;
+  premium: number;
+  coverageAmount: number;
+  duration: number;
+  status: string;
+}
 
-  constructor(private http: HttpClient) {}
+export interface PolicyCreateRequest {
+  policyName: string;
+  categoryId: string;
+  premium: number;
+  coverageAmount: number;
+  duration: number;
+}
 
-  getAll(): Observable<Policy[]> {
-    return this.http.get<Policy[]>(
-      this.policyUrl
-    );
-  }
+export interface PolicyApplication {
+  id: string;
+  applicationCode?: string;
+  policyId?: string;
+  policyName?: string;
+  customerName?: string;
+  status: string;
+  createdAt?: string;
+}
 
-  getActive(): Observable<Policy[]> {
-    return this.http.get<Policy[]>(
-      `${this.policyUrl}/active`
-    );
-  }
-
-  create(
-    request: PolicyCreateRequest
-  ): Observable<Policy> {
-    return this.http.post<Policy>(
-      this.policyUrl,
-      request
-    );
-  }
-
-  update(
-    id: string,
-    request: PolicyCreateRequest
-  ): Observable<Policy> {
-    return this.http.put<Policy>(
-      `${this.policyUrl}/${id}`,
-      request
-    );
-  }
-
-  approve(id: string): Observable<Policy> {
-    return this.http.put<Policy>(
-      `${this.policyUrl}/${id}/approve`,
-      {}
-    );
-  }
-
-  reject(id: string): Observable<Policy> {
-    return this.http.put<Policy>(
-      `${this.policyUrl}/${id}/reject`,
-      {}
-    );
-  }
-
-  delete(id: string): Observable<void> {
-    return this.http.delete<void>(
-      `${this.policyUrl}/${id}`
-    );
-  }
-
-  getCategories(): Observable<Category[]> {
-    return this.http.get<Category[]>(
-      this.categoryUrl
-    );
-  }
+export interface ApplicationDocument {
+  id: string;
+  fileName: string;
+  contentType: string;
+  s3Key: string;
+  uploadedBy?: string;
+  createdAt?: string;
 }
