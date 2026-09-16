@@ -23,10 +23,9 @@ public class SecurityConfig {
             HttpSecurity http,
             JwtAuthenticationFilter jwtFilter) throws Exception {
 
-        return http
+        http
                 .csrf(csrf -> csrf.disable())
 
-                // Allow Angular frontend to call Spring Boot backend
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 .sessionManagement(session -> session
@@ -35,18 +34,18 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
-                        // Allow CORS pre-flight requests
+                        // Browser CORS pre-flight
                         .requestMatchers(HttpMethod.OPTIONS, "/**")
                         .permitAll()
 
-                        // Authentication endpoints
+                        // Login / registration
                         .requestMatchers(
                                 "/auth/**",
                                 "/api/auth/**"
                         )
                         .permitAll()
 
-                        // Actuator
+                        // Health
                         .requestMatchers(
                                 "/actuator/health"
                         )
@@ -67,7 +66,6 @@ public class SecurityConfig {
                         .requestMatchers("/error")
                         .permitAll()
 
-                        // Everything else requires authentication
                         .anyRequest()
                         .authenticated()
                 )
@@ -75,23 +73,20 @@ public class SecurityConfig {
                 .addFilterBefore(
                         jwtFilter,
                         UsernamePasswordAuthenticationFilter.class
-                )
+                );
 
-                .build();
+        return http.build();
     }
-
 
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Angular development server
         configuration.setAllowedOrigins(
                 List.of("http://localhost:4200")
         );
 
-        // HTTP methods Angular can use
         configuration.setAllowedMethods(
                 List.of(
                         "GET",
@@ -103,13 +98,15 @@ public class SecurityConfig {
                 )
         );
 
-        // Allow request headers including Authorization
         configuration.setAllowedHeaders(
-                List.of("*")
+                List.of(
+                        "Authorization",
+                        "Content-Type",
+                        "Accept",
+                        "Origin"
+                )
         );
 
-        // Needed when sending credentials/cookies.
-        // It is also safe for your JWT setup.
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source =
