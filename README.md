@@ -1,122 +1,114 @@
-package com.insurewise.common.security;
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, tap } from 'rxjs';
 
-import java.util.List;
+import { API_CONFIG } from '../../config/api.config';
 
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-@Configuration
-@EnableMethodSecurity
-public class SecurityConfig {
-
-    @Bean
-    SecurityFilterChain securityFilterChain(
-            HttpSecurity http,
-            JwtAuthenticationFilter jwtFilter) throws Exception {
-
-        http
-                .csrf(csrf -> csrf.disable())
-
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS))
-
-                .authorizeHttpRequests(auth -> auth
-
-                        // Browser CORS pre-flight
-                        .requestMatchers(HttpMethod.OPTIONS, "/**")
-                        .permitAll()
-
-                        // Login / registration
-                        .requestMatchers(
-                                "/auth/**",
-                                "/api/auth/**"
-                        )
-                        .permitAll()
-
-                        // Health
-                        .requestMatchers(
-                                "/actuator/health"
-                        )
-                        .permitAll()
-
-                        // Swagger
-                        .requestMatchers(
-                                "/swagger-ui.html",
-                                "/swagger-ui/**",
-                                "/api-docs",
-                                "/api-docs/**",
-                                "/v3/api-docs",
-                                "/v3/api-docs/**",
-                                "/webjars/**"
-                        )
-                        .permitAll()
-
-                        .requestMatchers("/error")
-                        .permitAll()
-
-                        .anyRequest()
-                        .authenticated()
-                )
-
-                .addFilterBefore(
-                        jwtFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                );
-
-        return http.build();
-    }
-
-    @Bean
-    CorsConfigurationSource corsConfigurationSource() {
-
-        CorsConfiguration configuration = new CorsConfiguration();
-
-        configuration.setAllowedOrigins(
-                List.of("http://localhost:4200")
-        );
-
-        configuration.setAllowedMethods(
-                List.of(
-                        "GET",
-                        "POST",
-                        "PUT",
-                        "PATCH",
-                        "DELETE",
-                        "OPTIONS"
-                )
-        );
-
-        configuration.setAllowedHeaders(
-                List.of(
-                        "Authorization",
-                        "Content-Type",
-                        "Accept",
-                        "Origin"
-                )
-        );
-
-        configuration.setAllowCredentials(true);
-
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
-
-        source.registerCorsConfiguration(
-                "/**",
-                configuration
-        );
-
-        return source;
-    }
+export interface StaffLoginRequest {
+  email: string;
+  password: string;
 }
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  user_id: string;
+  email: string;
+  role: string;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class AuthService {
+
+  private readonly TOKEN_KEY = 'insurewise_token';
+  private readonly ROLE_KEY = 'insurewise_role';
+
+  private readonly loginUrl =
+    `${API_CONFIG.baseUrl}/auth/staff/login`;
+
+  constructor(private http: HttpClient) {}
+
+  login(request: StaffLoginRequest): Observable<LoginResponse> {
+
+    return this.http
+      .post<LoginResponse>(this.loginUrl, request)
+      .pipe(
+        tap(response => {
+
+          // Backend returns "access_token", NOT "token"
+          if (response?.access_token) {
+
+            localStorage.setItem(
+              this.TOKEN_KEY,
+              response.access_token
+            );
+
+            localStorage.setItem(
+              this.ROLE_KEY,
+              response.role ?? ''
+            );
+          }
+        })
+      );
+  }
+
+  getToken(): string | null {
+    return localStorage.getItem(this.TOKEN_KEY);
+  }
+
+  getRole(): string | null {
+    return localStorage.getItem(this.ROLE_KEY);
+  }
+
+  isLoggedIn(): boolean {
+    return !!this.getToken();
+  }
+
+  isStaff(): boolean {
+    return this.getRole() === 'STAFF';
+  }
+
+  logout(): void {
+    localStorage.removeItem(this.TOKEN_KEY);
+    localStorage.removeItem(this.ROLE_KEY);
+  }
+}
+
+
+
+
+
+import { Injectable } from '@angular/core';
+import {
+  HttpInterceptor,
+  HttpRequest,
+  HttpHandler
+} from '@angular/common/http';
+
+@Injectable()
+export class AuthInterceptor implements HttpInterceptor {
+
+  intercept(req: HttpRequest<any>, next: HttpHandler) {
+
+    const token =
+      localStorage.getItem('insurewise_token');
+
+    if (token) {
+
+      req = req.clone({
+        setHeaders: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+    }
+
+    return next.handle(req);
+  }
+}
+
+
+
+
+
