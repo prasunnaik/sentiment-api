@@ -1,271 +1,131 @@
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+<div class="page">
 
-import { API_CONFIG } from '../../core/environment/api.config';
-import { DashboardMetrics } from '../../types/br04-br05.types';
+  <div class="page-header">
+    <div>
+      <h2>Dashboard</h2>
+      <p>Overview of insurance platform activity</p>
+    </div>
+  </div>
 
-@Injectable({
-  providedIn: 'root'
-})
-export class DashboardApiService {
+  <div *ngIf="loading" class="message">
+    Loading dashboard...
+  </div>
 
-  private readonly url =
-    `${API_CONFIG.baseUrl}/api/dashboard/metrics`;
+  <div *ngIf="error" class="error">
+    {{ error }}
+  </div>
 
-  constructor(private http: HttpClient) {}
+  <div class="stats-grid" *ngIf="!loading">
 
-  getMetrics(): Observable<DashboardMetrics> {
-    return this.http.get<DashboardMetrics>(this.url);
+    <div class="stat-card">
+      <span>Staff Users</span>
+      <strong>{{ metrics.staff }}</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Customers</span>
+      <strong>{{ metrics.customers }}</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Categories</span>
+      <strong>{{ metrics.categories }}</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Policies</span>
+      <strong>{{ metrics.policies }}</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Active Policies</span>
+      <strong>{{ metrics.activePolicies }}</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Applications</span>
+      <strong>{{ metrics.applications }}</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Claims</span>
+      <strong>{{ metrics.claims }}</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Payments</span>
+      <strong>{{ metrics.payments }}</strong>
+    </div>
+
+  </div>
+
+</div>
+
+
+
+
+
+
+
+.page {
+  padding: 24px;
+}
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-header h2 {
+  margin: 0;
+}
+
+.page-header p {
+  margin-top: 6px;
+  color: #777;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+
+.stat-card {
+  background: white;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.stat-card span {
+  display: block;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+.stat-card strong {
+  font-size: 28px;
+}
+
+.message {
+  padding: 20px;
+}
+
+.error {
+  color: #c62828;
+}
+
+@media (max-width: 900px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-
-
-
-
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-
-import { API_CONFIG } from '../../core/environment/api.config';
-
-import {
-  StaffUser,
-  StaffCreateRequest,
-  StaffUpdateRequest
-} from '../../types/br04-br05.types';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class StaffUserApiService {
-
-  private readonly url =
-    `${API_CONFIG.baseUrl}/api/staff/users`;
-
-  constructor(private http: HttpClient) {}
-
-  getAll(): Observable<StaffUser[]> {
-    return this.http.get<StaffUser[]>(this.url);
-  }
-
-  getById(id: string): Observable<StaffUser> {
-    return this.http.get<StaffUser>(
-      `${this.url}/${id}`
-    );
-  }
-
-  create(request: StaffCreateRequest): Observable<StaffUser> {
-    return this.http.post<StaffUser>(
-      this.url,
-      request
-    );
-  }
-
-  update(
-    id: string,
-    request: StaffUpdateRequest
-  ): Observable<StaffUser> {
-    return this.http.put<StaffUser>(
-      `${this.url}/${id}`,
-      request
-    );
-  }
-
-  delete(id: string): Observable<void> {
-    return this.http.delete<void>(
-      `${this.url}/${id}`
-    );
+@media (max-width: 600px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
   }
 }
-
-
-
-
-
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-
-import { API_CONFIG } from '../../core/environment/api.config';
-
-import {
-  Policy,
-  PolicyCreateRequest,
-  Category
-} from '../../types/br04-br05.types';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class PolicyApiService {
-
-  private readonly policyUrl =
-    `${API_CONFIG.baseUrl}/api/policies`;
-
-  private readonly categoryUrl =
-    `${API_CONFIG.baseUrl}/api/categories`;
-
-  constructor(private http: HttpClient) {}
-
-  getAll(): Observable<Policy[]> {
-    return this.http.get<Policy[]>(
-      this.policyUrl
-    );
-  }
-
-  getActive(): Observable<Policy[]> {
-    return this.http.get<Policy[]>(
-      `${this.policyUrl}/active`
-    );
-  }
-
-  create(
-    request: PolicyCreateRequest
-  ): Observable<Policy> {
-    return this.http.post<Policy>(
-      this.policyUrl,
-      request
-    );
-  }
-
-  update(
-    id: string,
-    request: PolicyCreateRequest
-  ): Observable<Policy> {
-    return this.http.put<Policy>(
-      `${this.policyUrl}/${id}`,
-      request
-    );
-  }
-
-  approve(id: string): Observable<Policy> {
-    return this.http.put<Policy>(
-      `${this.policyUrl}/${id}/approve`,
-      {}
-    );
-  }
-
-  reject(id: string): Observable<Policy> {
-    return this.http.put<Policy>(
-      `${this.policyUrl}/${id}/reject`,
-      {}
-    );
-  }
-
-  delete(id: string): Observable<void> {
-    return this.http.delete<void>(
-      `${this.policyUrl}/${id}`
-    );
-  }
-
-  getCategories(): Observable<Category[]> {
-    return this.http.get<Category[]>(
-      this.categoryUrl
-    );
-  }
-}
-
-
-
-
-
-
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-
-import { API_CONFIG } from '../../core/environment/api.config';
-
-import {
-  PolicyApplication
-} from '../../types/br04-br05.types';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class PolicyApplicationApiService {
-
-  private readonly url =
-    `${API_CONFIG.baseUrl}/api/policy-applications`;
-
-  constructor(private http: HttpClient) {}
-
-  getAll(): Observable<PolicyApplication[]> {
-    return this.http.get<PolicyApplication[]>(
-      this.url
-    );
-  }
-
-  getPending(): Observable<PolicyApplication[]> {
-    return this.http.get<PolicyApplication[]>(
-      `${this.url}/pending`
-    );
-  }
-
-  getById(id: string): Observable<PolicyApplication> {
-    return this.http.get<PolicyApplication>(
-      `${this.url}/${id}`
-    );
-  }
-
-  approve(id: string): Observable<PolicyApplication> {
-    return this.http.put<PolicyApplication>(
-      `${this.url}/${id}/approve`,
-      {}
-    );
-  }
-
-  reject(id: string): Observable<PolicyApplication> {
-    return this.http.put<PolicyApplication>(
-      `${this.url}/${id}/reject`,
-      {}
-    );
-  }
-}
-
-
-
-
-
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-
-import { API_CONFIG } from '../../core/environment/api.config';
-
-import {
-  ApplicationDocument
-} from '../../types/br04-br05.types';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class ApplicationDocumentApiService {
-
-  private readonly url =
-    `${API_CONFIG.baseUrl}/api/application-documents`;
-
-  constructor(private http: HttpClient) {}
-
-  getByApplicationId(
-    applicationId: string
-  ): Observable<ApplicationDocument[]> {
-    return this.http.get<ApplicationDocument[]>(
-      `${this.url}/application/${applicationId}`
-    );
-  }
-
-  getDownloadUrl(
-    documentId: string
-  ): Observable<{ url: string }> {
-    return this.http.get<{ url: string }>(
-      `${this.url}/${documentId}/download`
-    );
-  }
-}
-
 
 
 
@@ -273,57 +133,290 @@ export class ApplicationDocumentApiService {
 
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 
-import { DashboardApiService } from '../../../services/api/dashboard-api.service';
-import { DashboardMetrics } from '../../../types/br04-br05.types';
+import {
+  StaffUser
+} from '../../../types/br04-br05.types';
+
+import {
+  StaffUserApiService
+} from '../../../services/api/staff-user-api.service';
 
 @Component({
-  selector: 'app-dashboard',
+  selector: 'app-manage-users-list',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.css']
+  templateUrl: './manage-users-list.component.html',
+  styleUrls: ['./manage-users-list.component.css']
 })
-export class DashboardComponent implements OnInit {
+export class ManageUsersListComponent implements OnInit {
 
-  metrics: DashboardMetrics = {
-    customers: 0,
-    staff: 0,
-    categories: 0,
-    policies: 0,
-    activePolicies: 0,
-    applications: 0,
-    claims: 0,
-    payments: 0
-  };
-
+  users: StaffUser[] = [];
   loading = true;
   error = '';
 
   constructor(
-    private dashboardApi: DashboardApiService
+    private staffUserApi: StaffUserApiService,
+    private router: Router
   ) {}
 
   ngOnInit(): void {
-    this.loadDashboard();
+    this.loadUsers();
   }
 
-  loadDashboard(): void {
+  loadUsers(): void {
     this.loading = true;
 
-    this.dashboardApi.getMetrics().subscribe({
-      next: response => {
-        this.metrics = response;
+    this.staffUserApi.getAll().subscribe({
+      next: users => {
+        this.users = users;
         this.loading = false;
       },
       error: () => {
-        this.error = 'Unable to load dashboard data.';
+        this.error = 'Unable to load staff users.';
         this.loading = false;
+      }
+    });
+  }
+
+  addUser(): void {
+    this.router.navigate(['/staff/manage-users/new']);
+  }
+
+  editUser(id: string): void {
+    this.router.navigate([
+      '/staff/manage-users',
+      id,
+      'edit'
+    ]);
+  }
+
+  deleteUser(user: StaffUser): void {
+
+    const confirmed = window.confirm(
+      `Delete staff user "${user.name}"?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.staffUserApi.delete(user.id).subscribe({
+      next: () => {
+        this.loadUsers();
+      },
+      error: () => {
+        this.error = 'Unable to delete staff user.';
       }
     });
   }
 }
 
+
+
+
+
+
+<div class="page">
+
+  <div class="header">
+    <div>
+      <h2>Manage Users</h2>
+      <p>View and manage staff users</p>
+    </div>
+
+    <button
+      class="primary-button"
+      type="button"
+      (click)="addUser()">
+      + Add User
+    </button>
+  </div>
+
+  <div *ngIf="loading">
+    Loading users...
+  </div>
+
+  <div *ngIf="error" class="error">
+    {{ error }}
+  </div>
+
+  <div class="table-container" *ngIf="!loading">
+
+    <table>
+      <thead>
+        <tr>
+          <th>NAME</th>
+          <th>EMAIL</th>
+          <th>ADDRESS</th>
+          <th>ACTIONS</th>
+        </tr>
+      </thead>
+
+      <tbody>
+
+        <tr *ngFor="let user of users">
+
+          <td>
+            <div class="user-cell">
+
+              <img
+                *ngIf="user.profilePictureUrl"
+                [src]="user.profilePictureUrl"
+                alt="Profile">
+
+              <div
+                *ngIf="!user.profilePictureUrl"
+                class="avatar">
+                {{ user.name.charAt(0).toUpperCase() }}
+              </div>
+
+              <span>{{ user.name }}</span>
+
+            </div>
+          </td>
+
+          <td>{{ user.email }}</td>
+
+          <td>{{ user.address }}</td>
+
+          <td class="actions">
+
+            <button
+              type="button"
+              class="edit"
+              (click)="editUser(user.id)">
+              Edit
+            </button>
+
+            <button
+              type="button"
+              class="delete"
+              (click)="deleteUser(user)">
+              Delete
+            </button>
+
+          </td>
+
+        </tr>
+
+        <tr *ngIf="users.length === 0">
+          <td colspan="4">
+            No staff users found.
+          </td>
+        </tr>
+
+      </tbody>
+    </table>
+
+  </div>
+
+</div>
+
+
+
+
+
+.page {
+  padding: 24px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.header h2 {
+  margin: 0;
+}
+
+.header p {
+  color: #777;
+}
+
+.primary-button {
+  border: 0;
+  border-radius: 5px;
+  padding: 10px 18px;
+  cursor: pointer;
+}
+
+.table-container {
+  background: white;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 14px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+th {
+  font-size: 12px;
+  color: #666;
+}
+
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-cell img,
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.user-cell img {
+  object-fit: cover;
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eee;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.edit,
+.delete {
+  background: transparent;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.edit {
+  border: 1px solid #888;
+}
+
+.delete {
+  border: 1px solid #d66;
+  color: #c00;
+}
+
+.error {
+  color: #c62828;
+}
 
 
 
