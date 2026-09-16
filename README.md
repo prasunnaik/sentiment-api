@@ -1,386 +1,278 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
+
+import {
+  StaffUser
+} from '../../../types/br04-05.types';
+
+import {
+  StaffUserApiService
+} from '../../../services/api/staff-user-api.service';
+
+@Component({
+  selector: 'app-manage-users-list',
+  standalone: true,
+  imports: [CommonModule],
+  templateUrl: './manage-users-list.component.html',
+  styleUrls: ['./manage-users-list.component.css']
+})
+export class ManageUsersListComponent implements OnInit {
+
+  users: StaffUser[] = [];
+  loading = true;
+  error = '';
+
+  constructor(
+    private staffUserApi: StaffUserApiService,
+    private router: Router
+  ) {}
+
+  ngOnInit(): void {
+    this.loadUsers();
+  }
+
+  loadUsers(): void {
+    this.loading = true;
+
+    this.staffUserApi.getAll().subscribe({
+      next: users => {
+        this.users = users;
+        this.loading = false;
+      },
+      error: () => {
+        this.error = 'Unable to load staff users.';
+        this.loading = false;
+      }
+    });
+  }
+
+  addUser(): void {
+    this.router.navigate(['/staff/manage-users/new']);
+  }
+
+  editUser(id: string): void {
+    this.router.navigate([
+      '/staff/manage-users',
+      id,
+      'edit'
+    ]);
+  }
+
+  deleteUser(user: StaffUser): void {
+
+    const confirmed = window.confirm(
+      `Delete staff user "${user.name}"?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.staffUserApi.delete(user.id).subscribe({
+      next: () => {
+        this.loadUsers();
+      },
+      error: () => {
+        this.error = 'Unable to delete staff user.';
+      }
+    });
+  }
+}
 <div class="page">
 
-  <div class="form-card">
-
-    <h2>
-      {{ isEdit ? 'Edit Staff User' : 'Add Staff User' }}
-    </h2>
-
-    <p class="subtitle">
-      {{ isEdit
-        ? 'Update staff account details'
-        : 'Create a new staff account' }}
-    </p>
-
-    <div *ngIf="loading" class="loading">
-      Loading...
+  <div class="header">
+    <div>
+      <h2>Manage Users</h2>
+      <p>View and manage staff users</p>
     </div>
 
-    <form
-      *ngIf="!loading"
-      [formGroup]="form"
-      (ngSubmit)="save()">
+    <button
+      class="primary-button"
+      type="button"
+      (click)="addUser()">
+      + Add User
+    </button>
+  </div>
 
-      <!-- FULL NAME -->
+  <div *ngIf="loading">
+    Loading users...
+  </div>
 
-      <div class="field">
+  <div *ngIf="error" class="error">
+    {{ error }}
+  </div>
 
-        <label for="fullname">
-          Full Name <span>*</span>
-        </label>
+  <div class="table-container" *ngIf="!loading">
 
-        <input
-          id="fullname"
-          type="text"
-          formControlName="fullname"
-          maxlength="100"
-          placeholder="Enter full name">
+    <table>
+      <thead>
+        <tr>
+          <th>NAME</th>
+          <th>EMAIL</th>
+          <th>ADDRESS</th>
+          <th>ACTIONS</th>
+        </tr>
+      </thead>
 
-        <small *ngIf="fullnameInvalid">
+      <tbody>
 
-          <span *ngIf="form.controls.fullname.errors?.['required']">
-            Full name is required.
-          </span>
+        <tr *ngFor="let user of users">
 
-          <span *ngIf="form.controls.fullname.errors?.['pattern']">
-            Name can contain letters, spaces, apostrophes and hyphens only.
-          </span>
+          <td>
+            <div class="user-cell">
 
-          <span *ngIf="form.controls.fullname.errors?.['minlength']">
-            Name must contain at least 2 characters.
-          </span>
+              <img
+                *ngIf="user.profilePictureUrl"
+                [src]="user.profilePictureUrl"
+                alt="Profile">
 
-        </small>
+              <div
+                *ngIf="!user.profilePictureUrl"
+                class="avatar">
+                {{ user.name.charAt(0).toUpperCase() }}
+              </div>
 
-      </div>
+              <span>{{ user.name }}</span>
 
+            </div>
+          </td>
 
-      <!-- EMAIL -->
+          <td>{{ user.email }}</td>
 
-      <div class="field">
+          <td>{{ user.address }}</td>
 
-        <label for="email">
-          Email <span>*</span>
-        </label>
+          <td class="actions">
 
-        <input
-          id="email"
-          type="email"
-          formControlName="email"
-          maxlength="150"
-          placeholder="Enter email">
+            <button
+              type="button"
+              class="edit"
+              (click)="editUser(user.id)">
+              Edit
+            </button>
 
-        <small *ngIf="emailInvalid">
-          Please enter a valid email address.
-        </small>
+            <button
+              type="button"
+              class="delete"
+              (click)="deleteUser(user)">
+              Delete
+            </button>
 
-      </div>
+          </td>
 
+        </tr>
 
-      <!-- ADDRESS -->
+        <tr *ngIf="users.length === 0">
+          <td colspan="4">
+            No staff users found.
+          </td>
+        </tr>
 
-      <div class="field">
-
-        <label for="address">
-          Address <span>*</span>
-        </label>
-
-        <textarea
-          id="address"
-          rows="4"
-          formControlName="address"
-          maxlength="250"
-          placeholder="Enter address">
-        </textarea>
-
-        <small *ngIf="addressInvalid">
-          Address is required and must contain valid text.
-        </small>
-
-      </div>
-
-
-      <!-- PASSWORD -->
-
-      <div
-        class="field"
-        *ngIf="!isEdit">
-
-        <label for="password">
-          Password <span>*</span>
-        </label>
-
-        <input
-          id="password"
-          type="password"
-          formControlName="password"
-          maxlength="100"
-          placeholder="Enter password">
-
-        <small *ngIf="passwordInvalid">
-
-          <span
-            *ngIf="form.controls.password.errors?.['required']">
-            Password is required.
-          </span>
-
-          <span
-            *ngIf="form.controls.password.errors?.['minlength']">
-            Password must contain at least 6 characters.
-          </span>
-
-        </small>
-
-      </div>
-
-
-      <!-- PROFILE PICTURE -->
-
-      <div class="field">
-
-        <label for="profilePicture">
-          Profile Picture
-        </label>
-
-        <input
-          id="profilePicture"
-          type="file"
-          accept=".jpg,.jpeg,.png,.webp"
-          (change)="onFileSelected($event)">
-
-        <div
-          class="preview"
-          *ngIf="previewUrl">
-
-          <img
-            [src]="previewUrl"
-            alt="Profile preview">
-
-          <button
-            type="button"
-            class="remove"
-            (click)="removeSelectedPicture()">
-            Remove
-          </button>
-
-        </div>
-
-        <small>
-          JPG, PNG or WEBP. Maximum size: 5 MB.
-        </small>
-
-      </div>
-
-
-      <!-- ERROR -->
-
-      <div
-        class="error"
-        *ngIf="error">
-        {{ error }}
-      </div>
-
-
-      <!-- SUCCESS -->
-
-      <div
-        class="success"
-        *ngIf="success">
-        {{ success }}
-      </div>
-
-
-      <!-- ACTIONS -->
-
-      <div class="actions">
-
-        <button
-          type="button"
-          class="secondary"
-          (click)="cancel()">
-          Cancel
-        </button>
-
-        <button
-          type="submit"
-          class="primary"
-          [disabled]="saving">
-
-          {{ saving
-            ? 'Saving...'
-            : (isEdit ? 'Update User' : 'Add User') }}
-
-        </button>
-
-      </div>
-
-    </form>
+      </tbody>
+    </table>
 
   </div>
 
 </div>
-
-
-
-
-
-
-
-
 .page {
   padding: 24px;
 }
 
-.form-card {
-  background: white;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  padding: 28px;
-  max-width: 700px;
-}
-
-.form-card h2 {
-  margin: 0;
-  font-size: 26px;
-}
-
-.subtitle {
-  color: #777;
-  margin-top: 8px;
-  margin-bottom: 24px;
-}
-
-.loading {
-  color: #777;
-  padding: 20px 0;
-}
-
-.field {
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
 }
 
-label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 7px;
+.header h2 {
+  margin: 0;
 }
 
-label span {
-  color: #c62828;
-}
-
-input,
-textarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  font-size: 14px;
-  font-family: inherit;
-}
-
-input:focus,
-textarea:focus {
-  outline: none;
-  border-color: #008c95;
-}
-
-textarea {
-  resize: vertical;
-}
-
-small {
-  display: block;
-  margin-top: 5px;
+.header p {
   color: #777;
-  font-size: 12px;
 }
 
-small span {
-  display: block;
-  color: #c62828;
-  margin-top: 3px;
+.primary-button {
+  border: 0;
+  border-radius: 5px;
+  padding: 10px 18px;
+  cursor: pointer;
 }
 
-.preview {
-  margin-top: 12px;
-}
-
-.preview img {
-  width: 90px;
-  height: 90px;
-  border-radius: 50%;
-  object-fit: cover;
-  display: block;
-  margin-bottom: 8px;
-}
-
-.remove {
-  border: 1px solid #c62828;
-  color: #c62828;
+.table-container {
   background: white;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 14px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+th {
+  font-size: 12px;
+  color: #666;
+}
+
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-cell img,
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.user-cell img {
+  object-fit: cover;
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eee;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.edit,
+.delete {
+  background: transparent;
   padding: 6px 10px;
   border-radius: 4px;
   cursor: pointer;
 }
 
-.remove:hover {
-  background: #fff5f5;
+.edit {
+  border: 1px solid #888;
 }
 
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 25px;
-}
-
-.primary,
-.secondary {
-  padding: 10px 18px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.primary {
-  border: 0;
-  background: #008c95;
-  color: white;
-}
-
-.primary:hover:not(:disabled) {
-  background: #00747b;
-}
-
-.secondary {
-  border: 1px solid #aaa;
-  background: white;
-  color: #333;
-}
-
-.secondary:hover {
-  background: #f5f5f5;
-}
-
-.primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.delete {
+  border: 1px solid #d66;
+  color: #c00;
 }
 
 .error {
   color: #c62828;
-  margin: 12px 0;
-  padding: 10px;
-  background: #fff5f5;
-  border-radius: 5px;
 }
 
-.success {
-  color: #2e7d32;
-  margin: 12px 0;
-  padding: 10px;
-  background: #f1f8f2;
-  border-radius: 5px;
-}
+
+
