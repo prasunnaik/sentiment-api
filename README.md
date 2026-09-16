@@ -39,18 +39,13 @@ export class PoliciesNewComponent implements OnInit {
   error = '';
   success = '';
 
-  /*
-   * Explicitly define the form controls.
-   * This allows TypeScript to recognise:
-   * policyName, categoryId, premium,
-   * coverageAmount and duration.
-   */
   form: FormGroup<{
-    policyName: FormControl<string>;
+    name: FormControl<string>;
     categoryId: FormControl<string>;
-    premium: FormControl<number>;
     coverageAmount: FormControl<number>;
-    duration: FormControl<number>;
+    premiumAmount: FormControl<number>;
+    durationLabel: FormControl<string>;
+    status: FormControl<string>;
   }>;
 
   constructor(
@@ -59,35 +54,15 @@ export class PoliciesNewComponent implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly router: Router
   ) {
-    /*
-     * FormBuilder is available here because it has already
-     * been injected by Angular.
-     */
+
     this.form = this.fb.nonNullable.group({
 
-      policyName: [
+      name: [
         '',
         [
           Validators.required,
           Validators.minLength(2),
-          Validators.maxLength(100),
-
-          /*
-           * Allows letters/numbers with optional spaces,
-           * apostrophes or hyphens between words.
-           *
-           * Examples allowed:
-           * Health Insurance
-           * Life-Insurance
-           * Motor Insurance 2
-           * Children's Insurance
-           *
-           * Examples rejected:
-           * Health@Insurance
-           * Life#Insurance
-           * Policy$
-           * Test%
-           */
+          Validators.maxLength(120),
           Validators.pattern(
             /^[A-Za-z0-9]+(?:[ '-][A-Za-z0-9]+)*$/
           )
@@ -99,14 +74,6 @@ export class PoliciesNewComponent implements OnInit {
         Validators.required
       ],
 
-      premium: [
-        0,
-        [
-          Validators.required,
-          Validators.min(0.01)
-        ]
-      ],
-
       coverageAmount: [
         0,
         [
@@ -115,13 +82,25 @@ export class PoliciesNewComponent implements OnInit {
         ]
       ],
 
-      duration: [
-        1,
+      premiumAmount: [
+        0,
         [
           Validators.required,
-          Validators.min(1),
-          Validators.max(100)
+          Validators.min(0.01)
         ]
+      ],
+
+      durationLabel: [
+        '',
+        [
+          Validators.required,
+          Validators.maxLength(40)
+        ]
+      ],
+
+      status: [
+        'ACTIVE',
+        Validators.required
       ]
     });
   }
@@ -150,6 +129,7 @@ export class PoliciesNewComponent implements OnInit {
           (category: Category) =>
             category.status === 'ACTIVE'
         );
+
       },
 
       error: (error: unknown) => {
@@ -174,11 +154,10 @@ export class PoliciesNewComponent implements OnInit {
 
       next: (policies: Policy[]) => {
 
-        const policy =
-          policies.find(
-            (item: Policy) =>
-              item.id === id
-          );
+        const policy = policies.find(
+          (item: Policy) =>
+            item.id === id
+        );
 
         if (!policy) {
 
@@ -191,20 +170,23 @@ export class PoliciesNewComponent implements OnInit {
 
         this.form.patchValue({
 
-          policyName:
-            policy.policyName,
+          name: policy.name,
 
           categoryId:
             policy.categoryId,
 
-          premium:
-            policy.premium,
-
           coverageAmount:
             policy.coverageAmount,
 
-          duration:
-            policy.duration
+          premiumAmount:
+            policy.premiumAmount,
+
+          durationLabel:
+            policy.durationLabel,
+
+          status:
+            policy.status
+
         });
 
         this.loading = false;
@@ -239,28 +221,35 @@ export class PoliciesNewComponent implements OnInit {
 
     this.saving = true;
 
+    /*
+     * IMPORTANT:
+     * These names exactly match PolicyCreateRequest
+     * and PolicyUpdateRequest in Spring Boot.
+     */
     const request = {
 
-      policyName:
-        this.form.controls.policyName.value.trim(),
+      name:
+        this.form.controls.name.value.trim(),
 
       categoryId:
         this.form.controls.categoryId.value,
-
-      premium:
-        Number(
-          this.form.controls.premium.value
-        ),
 
       coverageAmount:
         Number(
           this.form.controls.coverageAmount.value
         ),
 
-      duration:
+      premiumAmount:
         Number(
-          this.form.controls.duration.value
-        )
+          this.form.controls.premiumAmount.value
+        ),
+
+      durationLabel:
+        this.form.controls.durationLabel.value.trim(),
+
+      status:
+        this.form.controls.status.value
+
     };
 
     const operation =
@@ -294,6 +283,11 @@ export class PoliciesNewComponent implements OnInit {
       },
 
       error: (error: unknown) => {
+
+        console.error(
+          'Unable to save policy.',
+          error
+        );
 
         this.saving = false;
 
@@ -340,6 +334,11 @@ export class PoliciesNewComponent implements OnInit {
     return defaultMessage;
   }
 }
+
+
+
+
+
 <div class="page">
 
   <div class="form-card">
@@ -349,38 +348,80 @@ export class PoliciesNewComponent implements OnInit {
     </h2>
 
     <p>
-      Create or update an insurance policy.
+      {{ isEdit
+        ? 'Update the insurance policy details.'
+        : 'Create a new insurance policy.'
+      }}
     </p>
 
+    <div
+      class="error"
+      *ngIf="error">
+
+      {{ error }}
+
+    </div>
+
+    <div
+      class="success"
+      *ngIf="success">
+
+      {{ success }}
+
+    </div>
+
+    <div
+      class="loading"
+      *ngIf="loading">
+
+      Loading policy...
+
+    </div>
+
     <form
+      *ngIf="!loading"
       [formGroup]="form"
       (ngSubmit)="save()">
 
+      <!-- POLICY NAME -->
+
       <div class="field">
 
-        <label>Policy Name *</label>
+        <label for="name">
+          Policy Name *
+        </label>
 
         <input
+          id="name"
           type="text"
-          formControlName="policyName"
-          maxlength="100"
+          formControlName="name"
+          maxlength="120"
           placeholder="Enter policy name">
 
         <small
-          *ngIf="form.controls.policyName.invalid &&
-                 form.controls.policyName.touched">
+          *ngIf="
+            form.controls.name.invalid &&
+            form.controls.name.touched
+          ">
 
-          Policy name is required and can contain
-          letters, numbers, spaces, hyphens and apostrophes.
+          Policy name is required.
+
         </small>
 
       </div>
 
+
+      <!-- CATEGORY -->
+
       <div class="field">
 
-        <label>Category *</label>
+        <label for="categoryId">
+          Category *
+        </label>
 
-        <select formControlName="categoryId">
+        <select
+          id="categoryId"
+          formControlName="categoryId">
 
           <option value="">
             Select category
@@ -397,89 +438,136 @@ export class PoliciesNewComponent implements OnInit {
         </select>
 
         <small
-          *ngIf="form.controls.categoryId.invalid &&
-                 form.controls.categoryId.touched">
+          *ngIf="
+            form.controls.categoryId.invalid &&
+            form.controls.categoryId.touched
+          ">
 
           Category is required.
+
         </small>
 
       </div>
+
+
+      <!-- COVERAGE + PREMIUM -->
 
       <div class="two-columns">
 
         <div class="field">
 
-          <label>Premium Amount *</label>
+          <label for="coverageAmount">
+            Coverage Amount *
+          </label>
 
           <input
+            id="coverageAmount"
             type="number"
             min="0.01"
             step="0.01"
-            formControlName="premium">
+            formControlName="coverageAmount"
+            placeholder="Enter coverage amount">
 
           <small
-            *ngIf="form.controls.premium.invalid &&
-                   form.controls.premium.touched">
+            *ngIf="
+              form.controls.coverageAmount.invalid &&
+              form.controls.coverageAmount.touched
+            ">
 
-            Premium must be greater than zero.
+            Coverage amount must be greater than zero.
+
           </small>
 
         </div>
 
+
         <div class="field">
 
-          <label>Coverage Amount *</label>
+          <label for="premiumAmount">
+            Premium Amount *
+          </label>
 
           <input
+            id="premiumAmount"
             type="number"
             min="0.01"
             step="0.01"
-            formControlName="coverageAmount">
+            formControlName="premiumAmount"
+            placeholder="Enter premium amount">
 
           <small
-            *ngIf="form.controls.coverageAmount.invalid &&
-                   form.controls.coverageAmount.touched">
+            *ngIf="
+              form.controls.premiumAmount.invalid &&
+              form.controls.premiumAmount.touched
+            ">
 
-            Coverage must be greater than zero.
+            Premium amount must be greater than zero.
+
           </small>
 
         </div>
 
       </div>
 
+
+      <!-- DURATION -->
+
       <div class="field">
 
-        <label>Duration *</label>
+        <label for="durationLabel">
+          Duration *
+        </label>
 
         <input
-          type="number"
-          min="1"
-          formControlName="duration">
+          id="durationLabel"
+          type="text"
+          maxlength="40"
+          formControlName="durationLabel"
+          placeholder="Example: 1 Year">
 
         <small
-          *ngIf="form.controls.duration.invalid &&
-                 form.controls.duration.touched">
+          *ngIf="
+            form.controls.durationLabel.invalid &&
+            form.controls.durationLabel.touched
+          ">
 
-          Duration must be at least 1.
+          Duration is required.
+
         </small>
 
       </div>
 
-      <div
-        class="error"
-        *ngIf="error">
 
-        {{ error }}
+      <!-- STATUS -->
+
+      <div class="field">
+
+        <label for="status">
+          Status *
+        </label>
+
+        <select
+          id="status"
+          formControlName="status">
+
+          <option value="ACTIVE">
+            ACTIVE
+          </option>
+
+          <option value="DRAFT">
+            DRAFT
+          </option>
+
+          <option value="INACTIVE">
+            INACTIVE
+          </option>
+
+        </select>
 
       </div>
 
-      <div
-        class="success"
-        *ngIf="success">
 
-        {{ success }}
-
-      </div>
+      <!-- BUTTONS -->
 
       <div class="actions">
 
@@ -487,7 +575,9 @@ export class PoliciesNewComponent implements OnInit {
           type="button"
           class="secondary"
           (click)="cancel()">
+
           Cancel
+
         </button>
 
         <button
@@ -495,7 +585,10 @@ export class PoliciesNewComponent implements OnInit {
           class="primary"
           [disabled]="saving">
 
-          {{ saving ? 'Saving...' : 'Save Policy' }}
+          {{ saving
+            ? 'Saving...'
+            : (isEdit ? 'Update Policy' : 'Add Policy')
+          }}
 
         </button>
 
@@ -506,6 +599,12 @@ export class PoliciesNewComponent implements OnInit {
   </div>
 
 </div>
+
+
+
+
+
+
 .page {
   padding: 24px;
 }
@@ -516,6 +615,7 @@ export class PoliciesNewComponent implements OnInit {
   border: 1px solid #e5e5e5;
   border-radius: 8px;
   padding: 28px;
+  box-sizing: border-box;
 }
 
 .form-card h2 {
@@ -544,6 +644,13 @@ select {
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 5px;
+  font-size: 14px;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: #777;
 }
 
 .two-columns {
@@ -570,10 +677,18 @@ small {
   padding: 10px 18px;
   border-radius: 5px;
   cursor: pointer;
+  font-size: 14px;
 }
 
 .primary {
   border: 0;
+  background: #263238;
+  color: white;
+}
+
+.primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .secondary {
@@ -582,15 +697,74 @@ small {
 }
 
 .error {
+  margin-bottom: 15px;
+  padding: 10px;
+  background: #ffebee;
   color: #c62828;
+  border-radius: 5px;
 }
 
 .success {
+  margin-bottom: 15px;
+  padding: 10px;
+  background: #e8f5e9;
   color: #2e7d32;
+  border-radius: 5px;
+}
+
+.loading {
+  padding: 20px 0;
+  color: #777;
 }
 
 @media (max-width: 700px) {
+
   .two-columns {
     grid-template-columns: 1fr;
   }
+
+  .form-card {
+    padding: 20px;
+  }
+}
+
+
+
+
+
+create(request: {
+  name: string;
+  categoryId: string;
+  coverageAmount: number;
+  premiumAmount: number;
+  durationLabel: string;
+  status: string;
+}) {
+  return this.http.post<Policy>(
+    `${API_URL}/api/policies`,
+    request
+  );
+}
+
+
+
+
+
+
+
+update(
+  id: string,
+  request: {
+    name: string;
+    categoryId: string;
+    coverageAmount: number;
+    premiumAmount: number;
+    durationLabel: string;
+    status: string;
+  }
+) {
+  return this.http.put<Policy>(
+    `${API_URL}/api/policies/${id}`,
+    request
+  );
 }
