@@ -1,512 +1,234 @@
-export interface DashboardMetrics {
-  customers: number;
-  staff: number;
-  categories: number;
-  policies: number;
-  activePolicies: number;
-  applications: number;
-  claims: number;
-  payments: number;
-}
-
-export interface StaffUser {
-  id: string;
-  name: string;
-  email: string;
-  address: string;
-  profilePictureUrl?: string | null;
-}
-
-export interface StaffCreateRequest {
-  name: string;
-  email: string;
-  address: string;
-}
-
-export interface StaffUpdateRequest {
-  name: string;
-  email: string;
-  address: string;
-}
-
-export interface Category {
-  id: string;
-  name: string;
-  status: string;
-}
-
-
-/* =========================
-   POLICY
-   ========================= */
-
-export interface Policy {
-  id: string;
-  name: string;
-  categoryId: string;
-  categoryName?: string;
-  coverageAmount: number;
-  premiumAmount: number;
-  durationLabel: string;
-  status: string;
-}
-
-export interface PolicyCreateRequest {
-  name: string;
-  categoryId: string;
-  coverageAmount: number;
-  premiumAmount: number;
-  durationLabel: string;
-  status: string;
-}
-
-
-/* =========================
-   POLICY APPLICATION
-   ========================= */
-
-export interface PolicyApplication {
-  id: string;
-  applicationCode?: string;
-  customerId?: string;
-  policyId?: string;
-  policyName?: string;
-  coverageType?: string;
-  coverageAmount?: number;
-  premiumAmount?: number;
-  dateOfBirth?: string;
-  address?: string;
-  preferredStartDate?: string;
-  nomineeName?: string;
-  nomineeRelationship?: string;
-  startDate?: string;
-  endDate?: string;
-  status: string;
-  decidedBy?: string;
-  decidedAt?: string;
-  createdAt?: string;
-}
-
-
-/* =========================
-   APPLICATION DOCUMENT
-   ========================= */
-
-export interface ApplicationDocument {
-  id: string;
-  fileName: string;
-  contentType: string;
-  s3Key: string;
-  uploadedBy?: string;
-  createdAt?: string;
-}
-
-
-
-
-
-
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-
-import { API_CONFIG } from '../../core/environment/api.config';
-
-import {
-  Policy,
-  PolicyCreateRequest,
-  Category
-} from '../../types/br04-05.types';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class PolicyApiService {
-
-  private readonly policyUrl =
-    `${API_CONFIG.baseUrl}/api/policies`;
-
-  private readonly categoryUrl =
-    `${API_CONFIG.baseUrl}/api/categories`;
-
-  constructor(
-    private readonly http: HttpClient
-  ) {}
-
-  /**
-   * GET /api/policies
-   */
-  getAll(): Observable<Policy[]> {
-    return this.http.get<Policy[]>(
-      this.policyUrl
-    );
-  }
-
-  /**
-   * POST /api/policies
-   */
-  create(
-    request: PolicyCreateRequest
-  ): Observable<Policy> {
-    return this.http.post<Policy>(
-      this.policyUrl,
-      request
-    );
-  }
-
-  /**
-   * PUT /api/policies/{id}
-   */
-  update(
-    id: string,
-    request: PolicyCreateRequest
-  ): Observable<Policy> {
-    return this.http.put<Policy>(
-      `${this.policyUrl}/${id}`,
-      request
-    );
-  }
-
-  /**
-   * DELETE /api/policies/{id}
-   */
-  delete(id: string): Observable<void> {
-    return this.http.delete<void>(
-      `${this.policyUrl}/${id}`
-    );
-  }
-
-  /**
-   * GET /api/categories
-   */
-  getCategories(): Observable<Category[]> {
-    return this.http.get<Category[]>(
-      this.categoryUrl
-    );
-  }
-}
-
-
-
-
-
-
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import {
-  FormBuilder,
-  FormControl,
-  FormGroup,
-  ReactiveFormsModule,
-  Validators
-} from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
-
-import { PolicyApiService } from '../../../services/api/policy-api.service';
-
-import {
-  Category,
-  Policy,
-  PolicyCreateRequest
-} from '../../../types/br04-05.types';
-
-@Component({
-  selector: 'app-policies-new',
-  standalone: true,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule
-  ],
-  templateUrl: './policies-new.component.html',
-  styleUrls: ['./policies-new.component.css']
-})
-export class PoliciesNewComponent implements OnInit {
-
-  policyId: string | null = null;
-  isEdit = false;
-
-  categories: Category[] = [];
-
-  loading = false;
-  saving = false;
-
-  error = '';
-  success = '';
-
-  form: FormGroup<{
-    name: FormControl<string>;
-    categoryId: FormControl<string>;
-    premiumAmount: FormControl<number>;
-    coverageAmount: FormControl<number>;
-    durationLabel: FormControl<string>;
-  }>;
-
-  constructor(
-    private readonly fb: FormBuilder,
-    private readonly policyApi: PolicyApiService,
-    private readonly route: ActivatedRoute,
-    private readonly router: Router
-  ) {
-    this.form = this.fb.nonNullable.group({
-
-      name: [
-        '',
-        [
-          Validators.required,
-          Validators.minLength(2),
-          Validators.maxLength(120),
-          Validators.pattern(
-            /^[A-Za-z0-9]+(?:[ '-][A-Za-z0-9]+)*$/
-          )
-        ]
-      ],
-
-      categoryId: [
-        '',
-        Validators.required
-      ],
-
-      premiumAmount: [
-        0,
-        [
-          Validators.required,
-          Validators.min(0.01)
-        ]
-      ],
-
-      coverageAmount: [
-        0,
-        [
-          Validators.required,
-          Validators.min(0.01)
-        ]
-      ],
-
-      durationLabel: [
-        '',
-        [
-          Validators.required,
-          Validators.maxLength(40)
-        ]
-      ]
-    });
-  }
-
-  ngOnInit(): void {
-
-    this.policyId =
-      this.route.snapshot.paramMap.get('id');
-
-    this.isEdit = !!this.policyId;
-
-    this.loadCategories();
-
-    if (this.policyId) {
-      this.loadPolicy(this.policyId);
-    }
-  }
-
-  loadCategories(): void {
-
-    this.policyApi.getCategories().subscribe({
-
-      next: (categories: Category[]) => {
-
-        this.categories = categories.filter(
-          (category: Category) =>
-            category.status === 'ACTIVE'
-        );
-      },
-
-      error: (error: unknown) => {
-
-        console.error(
-          'Unable to load categories.',
-          error
-        );
-
-        this.error =
-          'Unable to load active categories.';
-      }
-    });
-  }
-
-  loadPolicy(id: string): void {
-
-    this.loading = true;
-    this.error = '';
-
-    this.policyApi.getAll().subscribe({
-
-      next: (policies: Policy[]) => {
-
-        const policy =
-          policies.find(
-            (item: Policy) =>
-              item.id === id
-          );
-
-        if (!policy) {
-
-          this.error =
-            'Policy not found.';
-
-          this.loading = false;
-          return;
-        }
-
-        this.form.patchValue({
-
-          name:
-            policy.name,
-
-          categoryId:
-            policy.categoryId,
+<div class="page">
 
-          premiumAmount:
-            policy.premiumAmount,
+  <div class="form-card">
 
-          coverageAmount:
-            policy.coverageAmount,
-
-          durationLabel:
-            policy.durationLabel
-        });
-
-        this.loading = false;
-      },
-
-      error: (error: unknown) => {
-
-        console.error(
-          'Unable to load policy.',
-          error
-        );
-
-        this.error =
-          'Unable to load policy.';
-
-        this.loading = false;
-      }
-    });
-  }
-
-  save(): void {
-
-    this.error = '';
-    this.success = '';
-
-    if (this.form.invalid) {
-
-      this.form.markAllAsTouched();
-
-      return;
-    }
-
-    this.saving = true;
-
-    const request: PolicyCreateRequest = {
-
-      name:
-        this.form.controls.name.value.trim(),
-
-      categoryId:
-        this.form.controls.categoryId.value,
+    <h2>
+      {{ isEdit ? 'Edit Policy' : 'Add Policy' }}
+    </h2>
 
-      premiumAmount:
-        Number(
-          this.form.controls.premiumAmount.value
-        ),
+    <p>
+      {{ isEdit
+        ? 'Update the insurance policy details.'
+        : 'Create a new insurance policy.'
+      }}
+    </p>
 
-      coverageAmount:
-        Number(
-          this.form.controls.coverageAmount.value
-        ),
+    <!-- Loading -->
+    <div
+      class="loading"
+      *ngIf="loading">
 
-      durationLabel:
-        this.form.controls.durationLabel.value.trim(),
+      Loading policy...
 
-      status: 'ACTIVE'
-    };
+    </div>
 
-    const operation =
-      this.isEdit && this.policyId
-        ? this.policyApi.update(
-            this.policyId,
-            request
-          )
-        : this.policyApi.create(
-            request
-          );
+    <form
+      *ngIf="!loading"
+      [formGroup]="form"
+      (ngSubmit)="save()">
 
-    operation.subscribe({
+      <!-- Policy Name -->
+      <div class="field">
 
-      next: () => {
+        <label for="name">
+          Policy Name *
+        </label>
 
-        this.saving = false;
+        <input
+          id="name"
+          type="text"
+          formControlName="name"
+          maxlength="120"
+          placeholder="Enter policy name">
 
-        this.success =
-          this.isEdit
-            ? 'Policy updated successfully.'
-            : 'Policy created successfully.';
+        <small
+          *ngIf="
+            form.controls.name.invalid &&
+            form.controls.name.touched
+          ">
 
-        setTimeout(() => {
+          Policy name is required and can contain
+          letters, numbers, spaces, hyphens and apostrophes.
 
-          this.router.navigate([
-            '/staff/policies'
-          ]);
+        </small>
 
-        }, 700);
-      },
+      </div>
 
-      error: (error: unknown) => {
 
-        this.saving = false;
+      <!-- Category -->
+      <div class="field">
 
-        this.error =
-          this.getErrorMessage(
-            error,
-            'Unable to save policy.'
-          );
-      }
-    });
-  }
+        <label for="categoryId">
+          Category *
+        </label>
 
-  cancel(): void {
+        <select
+          id="categoryId"
+          formControlName="categoryId">
 
-    this.router.navigate([
-      '/staff/policies'
-    ]);
-  }
+          <option value="">
+            Select category
+          </option>
 
-  private getErrorMessage(
-    error: unknown,
-    defaultMessage: string
-  ): string {
+          <option
+            *ngFor="let category of categories"
+            [value]="category.id">
 
-    if (
-      error !== null &&
-      typeof error === 'object' &&
-      'error' in error
-    ) {
+            {{ category.name }}
 
-      const response =
-        error as {
-          error?: {
-            message?: string;
-          };
-        };
+          </option>
 
-      return (
-        response.error?.message ??
-        defaultMessage
-      );
-    }
+        </select>
 
-    return defaultMessage;
-  }
-}
+        <small
+          *ngIf="
+            form.controls.categoryId.invalid &&
+            form.controls.categoryId.touched
+          ">
 
+          Category is required.
 
+        </small>
 
+      </div>
 
+
+      <!-- Premium + Coverage -->
+      <div class="two-columns">
+
+        <!-- Premium -->
+        <div class="field">
+
+          <label for="premiumAmount">
+            Premium Amount *
+          </label>
+
+          <input
+            id="premiumAmount"
+            type="number"
+            min="0.01"
+            step="0.01"
+            formControlName="premiumAmount"
+            placeholder="Enter premium amount">
+
+          <small
+            *ngIf="
+              form.controls.premiumAmount.invalid &&
+              form.controls.premiumAmount.touched
+            ">
+
+            Premium must be greater than zero.
+
+          </small>
+
+        </div>
+
+
+        <!-- Coverage -->
+        <div class="field">
+
+          <label for="coverageAmount">
+            Coverage Amount *
+          </label>
+
+          <input
+            id="coverageAmount"
+            type="number"
+            min="0.01"
+            step="0.01"
+            formControlName="coverageAmount"
+            placeholder="Enter coverage amount">
+
+          <small
+            *ngIf="
+              form.controls.coverageAmount.invalid &&
+              form.controls.coverageAmount.touched
+            ">
+
+            Coverage must be greater than zero.
+
+          </small>
+
+        </div>
+
+      </div>
+
+
+      <!-- Duration -->
+      <div class="field">
+
+        <label for="durationLabel">
+          Duration *
+        </label>
+
+        <input
+          id="durationLabel"
+          type="text"
+          maxlength="40"
+          formControlName="durationLabel"
+          placeholder="Example: 1 Year">
+
+        <small
+          *ngIf="
+            form.controls.durationLabel.invalid &&
+            form.controls.durationLabel.touched
+          ">
+
+          Duration is required.
+
+        </small>
+
+      </div>
+
+
+      <!-- Error -->
+      <div
+        class="error"
+        *ngIf="error">
+
+        {{ error }}
+
+      </div>
+
+
+      <!-- Success -->
+      <div
+        class="success"
+        *ngIf="success">
+
+        {{ success }}
+
+      </div>
+
+
+      <!-- Buttons -->
+      <div class="actions">
+
+        <button
+          type="button"
+          class="secondary"
+          (click)="cancel()">
+
+          Cancel
+
+        </button>
+
+        <button
+          type="submit"
+          class="primary"
+          [disabled]="saving">
+
+          {{ saving
+            ? 'Saving...'
+            : (isEdit ? 'Update Policy' : 'Save Policy')
+          }}
+
+        </button>
+
+      </div>
+
+    </form>
+
+  </div>
+
+</div>
