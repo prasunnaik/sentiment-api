@@ -22,9 +22,6 @@ export class StaffUserApiService {
     private readonly http: HttpClient
   ) {}
 
-  /*
-   * GET ALL STAFF USERS
-   */
   getAll(): Observable<StaffUser[]> {
 
     return this.http
@@ -38,9 +35,6 @@ export class StaffUserApiService {
       );
   }
 
-  /*
-   * GET STAFF USER BY ID
-   */
   getById(id: string): Observable<StaffUser> {
 
     return this.http
@@ -54,15 +48,6 @@ export class StaffUserApiService {
       );
   }
 
-  /*
-   * CREATE STAFF USER
-   *
-   * Sends:
-   * fullName
-   * email
-   * address
-   * password
-   */
   create(
     request: StaffCreateRequest
   ): Observable<StaffUser> {
@@ -79,9 +64,6 @@ export class StaffUserApiService {
       );
   }
 
-  /*
-   * UPDATE STAFF USER
-   */
   update(
     id: string,
     request: StaffUpdateRequest
@@ -99,9 +81,6 @@ export class StaffUserApiService {
       );
   }
 
-  /*
-   * DELETE STAFF USER
-   */
   delete(id: string): Observable<void> {
 
     return this.http.delete<void>(
@@ -109,15 +88,6 @@ export class StaffUserApiService {
     );
   }
 
-  /*
-   * NORMALIZE BACKEND RESPONSE
-   *
-   * Handles possible backend property names:
-   *
-   * fullName
-   * fullname
-   * name
-   */
   private normalizeUser(
     response: unknown
   ): StaffUser {
@@ -125,11 +95,15 @@ export class StaffUserApiService {
     const user =
       response as {
         id?: string;
+
         fullName?: string;
+        full_name?: string;
         fullname?: string;
         name?: string;
+
         email?: string;
         address?: string;
+
         profilePictureUrl?: string | null;
       };
 
@@ -138,8 +112,13 @@ export class StaffUserApiService {
       id:
         user.id ?? '',
 
+      /*
+       * Backend currently returns:
+       * full_name
+       */
       fullName:
         user.fullName ??
+        user.full_name ??
         user.fullname ??
         user.name ??
         '',
