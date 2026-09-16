@@ -1,82 +1,232 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
-
 import {
-  Policy
-} from '../../../types/br04-br05.types';
+  FormBuilder,
+  ReactiveFormsModule,
+  Validators
+} from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 
 import {
   PolicyApiService
 } from '../../../services/api/policy-api.service';
 
-@Component({
-  selector: 'app-policies-list',
-  standalone: true,
-  imports: [CommonModule],
-  templateUrl: './policies-list.component.html',
-  styleUrls: ['./policies-list.component.css']
-})
-export class PoliciesListComponent implements OnInit {
+import {
+  Category
+} from '../../../types/br04-br05.types';
 
-  policies: Policy[] = [];
-  loading = true;
+@Component({
+  selector: 'app-policies-new',
+  standalone: true,
+  imports: [
+    CommonModule,
+    ReactiveFormsModule
+  ],
+  templateUrl: './policies-new.component.html',
+  styleUrls: ['./policies-new.component.css']
+})
+export class PoliciesNewComponent implements OnInit {
+
+  policyId: string | null = null;
+  isEdit = false;
+
+  categories: Category[] = [];
+
+  loading = false;
+  saving = false;
+
   error = '';
+  success = '';
+
+  form = this.fb.nonNullable.group({
+
+    policyName: [
+      '',
+      [
+        Validators.required,
+        Validators.minLength(2),
+        Validators.maxLength(100),
+        Validators.pattern(
+          /^[A-Za-z0-9]+(?:[ '-][A-Za-z0-9]+)*$/
+        )
+      ]
+    ],
+
+    categoryId: [
+      '',
+      Validators.required
+    ],
+
+    premium: [
+      0,
+      [
+        Validators.required,
+        Validators.min(0.01)
+      ]
+    ],
+
+    coverageAmount: [
+      0,
+      [
+        Validators.required,
+        Validators.min(0.01)
+      ]
+    ],
+
+    duration: [
+      1,
+      [
+        Validators.required,
+        Validators.min(1),
+        Validators.max(100)
+      ]
+    ]
+
+  });
 
   constructor(
+    private fb: FormBuilder,
     private policyApi: PolicyApiService,
+    private route: ActivatedRoute,
     private router: Router
   ) {}
 
   ngOnInit(): void {
-    this.loadPolicies();
+
+    this.policyId =
+      this.route.snapshot.paramMap.get('id');
+
+    this.isEdit = !!this.policyId;
+
+    this.loadCategories();
+
+    if (this.policyId) {
+      this.loadPolicy(this.policyId);
+    }
   }
 
-  loadPolicies(): void {
+  loadCategories(): void {
+
+    this.policyApi.getCategories().subscribe({
+      next: categories => {
+        this.categories =
+          categories.filter(
+            category => category.status === 'ACTIVE'
+          );
+      },
+
+      error: () => {
+        this.error =
+          'Unable to load active categories.';
+      }
+    });
+  }
+
+  loadPolicy(id: string): void {
 
     this.loading = true;
 
     this.policyApi.getAll().subscribe({
       next: policies => {
-        this.policies = policies;
+
+        const policy =
+          policies.find(item => item.id === id);
+
+        if (!policy) {
+          this.error = 'Policy not found.';
+          this.loading = false;
+          return;
+        }
+
+        this.form.patchValue({
+          policyName: policy.policyName,
+          categoryId: policy.categoryId,
+          premium: policy.premium,
+          coverageAmount: policy.coverageAmount,
+          duration: policy.duration
+        });
+
         this.loading = false;
       },
 
       error: () => {
-        this.error = 'Unable to load policies.';
+        this.error = 'Unable to load policy.';
         this.loading = false;
       }
     });
   }
 
-  addPolicy(): void {
-    this.router.navigate([
-      '/staff/policies/new'
-    ]);
-  }
+  save(): void {
 
-  editPolicy(id: string): void {
-    this.router.navigate([
-      '/staff/policies',
-      id,
-      'edit'
-    ]);
-  }
+    this.error = '';
+    this.success = '';
 
-  deletePolicy(policy: Policy): void {
-
-    if (!window.confirm(
-      `Delete policy "${policy.policyName}"?`
-    )) {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
       return;
     }
 
-    this.policyApi.delete(policy.id).subscribe({
-      next: () => this.loadPolicies(),
-      error: () => {
-        this.error = 'Unable to delete policy.';
+    this.saving = true;
+
+    const request = {
+      policyName:
+        this.form.controls.policyName.value.trim(),
+
+      categoryId:
+        this.form.controls.categoryId.value,
+
+      premium:
+        Number(this.form.controls.premium.value),
+
+      coverageAmount:
+        Number(this.form.controls.coverageAmount.value),
+
+      duration:
+        Number(this.form.controls.duration.value)
+    };
+
+    const operation =
+      this.isEdit && this.policyId
+        ? this.policyApi.update(
+            this.policyId,
+            request
+          )
+        : this.policyApi.create(request);
+
+    operation.subscribe({
+
+      next: () => {
+
+        this.saving = false;
+
+        this.success =
+          this.isEdit
+            ? 'Policy updated successfully.'
+            : 'Policy created successfully.';
+
+        setTimeout(() => {
+          this.router.navigate([
+            '/staff/policies'
+          ]);
+        }, 700);
+      },
+
+      error: error => {
+
+        this.saving = false;
+
+        this.error =
+          error?.error?.message ??
+          'Unable to save policy.';
       }
+
     });
+  }
+
+  cancel(): void {
+    this.router.navigate([
+      '/staff/policies'
+    ]);
   }
 }
 
@@ -87,102 +237,166 @@ export class PoliciesListComponent implements OnInit {
 
 <div class="page">
 
-  <div class="header">
+  <div class="form-card">
 
-    <div>
-      <h2>Manage Policies</h2>
-      <p>View and manage insurance policies</p>
-    </div>
+    <h2>
+      {{ isEdit ? 'Edit Policy' : 'Add Policy' }}
+    </h2>
 
-    <button
-      class="primary"
-      (click)="addPolicy()">
-      + Add Policy
-    </button>
+    <p>
+      Create or update an insurance policy.
+    </p>
 
-  </div>
+    <form
+      [formGroup]="form"
+      (ngSubmit)="save()">
 
-  <div *ngIf="loading">
-    Loading policies...
-  </div>
+      <div class="field">
 
-  <div *ngIf="error" class="error">
-    {{ error }}
-  </div>
+        <label>Policy Name *</label>
 
-  <div
-    class="table-container"
-    *ngIf="!loading">
+        <input
+          type="text"
+          formControlName="policyName"
+          maxlength="100"
+          placeholder="Enter policy name">
 
-    <table>
+        <small
+          *ngIf="form.controls.policyName.invalid &&
+                 form.controls.policyName.touched">
 
-      <thead>
-        <tr>
-          <th>POLICY NAME</th>
-          <th>CATEGORY</th>
-          <th>PREMIUM</th>
-          <th>COVERAGE</th>
-          <th>DURATION</th>
-          <th>STATUS</th>
-          <th>ACTIONS</th>
-        </tr>
-      </thead>
+          Policy name is required and can contain
+          letters, numbers, spaces, hyphens and apostrophes.
+        </small>
 
-      <tbody>
+      </div>
 
-        <tr *ngFor="let policy of policies">
+      <div class="field">
 
-          <td>{{ policy.policyName }}</td>
+        <label>Category *</label>
 
-          <td>
-            {{ policy.categoryName || policy.categoryId }}
-          </td>
+        <select formControlName="categoryId">
 
-          <td>
-            {{ policy.premium | currency:'INR' }}
-          </td>
+          <option value="">
+            Select category
+          </option>
 
-          <td>
-            {{ policy.coverageAmount | currency:'INR' }}
-          </td>
+          <option
+            *ngFor="let category of categories"
+            [value]="category.id">
 
-          <td>
-            {{ policy.duration }}
-          </td>
+            {{ category.name }}
 
-          <td>
-            <span class="status">
-              {{ policy.status }}
-            </span>
-          </td>
+          </option>
 
-          <td>
+        </select>
 
-            <button
-              class="edit"
-              (click)="editPolicy(policy.id)">
-              Edit
-            </button>
+        <small
+          *ngIf="form.controls.categoryId.invalid &&
+                 form.controls.categoryId.touched">
 
-            <button
-              class="delete"
-              (click)="deletePolicy(policy)">
-              Delete
-            </button>
+          Category is required.
+        </small>
 
-          </td>
+      </div>
 
-        </tr>
+      <div class="two-columns">
 
-        <tr *ngIf="policies.length === 0">
-          <td colspan="7">
-            No policies found.
-          </td>
-        </tr>
+        <div class="field">
 
-      </tbody>
+          <label>Premium Amount *</label>
 
-    </table>
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            formControlName="premium">
+
+          <small
+            *ngIf="form.controls.premium.invalid &&
+                   form.controls.premium.touched">
+
+            Premium must be greater than zero.
+          </small>
+
+        </div>
+
+        <div class="field">
+
+          <label>Coverage Amount *</label>
+
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            formControlName="coverageAmount">
+
+          <small
+            *ngIf="form.controls.coverageAmount.invalid &&
+                   form.controls.coverageAmount.touched">
+
+            Coverage must be greater than zero.
+          </small>
+
+        </div>
+
+      </div>
+
+      <div class="field">
+
+        <label>Duration *</label>
+
+        <input
+          type="number"
+          min="1"
+          formControlName="duration">
+
+        <small
+          *ngIf="form.controls.duration.invalid &&
+                 form.controls.duration.touched">
+
+          Duration must be at least 1.
+        </small>
+
+      </div>
+
+      <div
+        class="error"
+        *ngIf="error">
+
+        {{ error }}
+
+      </div>
+
+      <div
+        class="success"
+        *ngIf="success">
+
+        {{ success }}
+
+      </div>
+
+      <div class="actions">
+
+        <button
+          type="button"
+          class="secondary"
+          (click)="cancel()">
+          Cancel
+        </button>
+
+        <button
+          type="submit"
+          class="primary"
+          [disabled]="saving">
+
+          {{ saving ? 'Saving...' : 'Save Policy' }}
+
+        </button>
+
+      </div>
+
+    </form>
 
   </div>
 
@@ -192,84 +406,159 @@ export class PoliciesListComponent implements OnInit {
 
 
 
+
 .page {
   padding: 24px;
 }
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+.form-card {
+  max-width: 750px;
+  background: white;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 28px;
 }
 
-.header h2 {
+.form-card h2 {
   margin: 0;
 }
 
-.header p {
+.form-card > p {
   color: #777;
+  margin-bottom: 25px;
 }
 
-.primary {
-  border: 0;
+.field {
+  margin-bottom: 18px;
+}
+
+label {
+  display: block;
+  margin-bottom: 7px;
+  font-weight: 600;
+}
+
+input,
+select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.two-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+small {
+  display: block;
+  margin-top: 5px;
+  color: #c62828;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 25px;
+}
+
+.primary,
+.secondary {
   padding: 10px 18px;
   border-radius: 5px;
   cursor: pointer;
 }
 
-.table-container {
+.primary {
+  border: 0;
+}
+
+.secondary {
   background: white;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  overflow-x: auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th,
-td {
-  padding: 14px;
-  border-bottom: 1px solid #eee;
-  text-align: left;
-}
-
-th {
-  font-size: 12px;
-  color: #666;
-}
-
-.status {
-  font-size: 13px;
-}
-
-.edit,
-.delete {
-  padding: 6px 10px;
-  margin-right: 5px;
-  background: white;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.edit {
-  border: 1px solid #888;
-}
-
-.delete {
-  border: 1px solid #c62828;
-  color: #c62828;
+  border: 1px solid #aaa;
 }
 
 .error {
   color: #c62828;
 }
 
+.success {
+  color: #2e7d32;
+}
+
+@media (max-width: 700px) {
+  .two-columns {
+    grid-template-columns: 1fr;
+  }
+}
 
 
 
 
 
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
+
+import {
+  PolicyApplication
+} from '../../../types/br04-br05.types';
+
+import {
+  PolicyApplicationApiService
+} from '../../../services/api/policy-application-api.service';
+
+@Component({
+  selector: 'app-approve-policies-list',
+  standalone: true,
+  imports: [CommonModule],
+  templateUrl: './approve-policies-list.component.html',
+  styleUrls: ['./approve-policies-list.component.css']
+})
+export class ApprovePoliciesListComponent implements OnInit {
+
+  applications: PolicyApplication[] = [];
+
+  loading = true;
+  error = '';
+
+  constructor(
+    private applicationApi: PolicyApplicationApiService,
+    private router: Router
+  ) {}
+
+  ngOnInit(): void {
+    this.loadApplications();
+  }
+
+  loadApplications(): void {
+
+    this.loading = true;
+
+    this.applicationApi.getPending().subscribe({
+
+      next: applications => {
+        this.applications = applications;
+        this.loading = false;
+      },
+
+      error: () => {
+        this.error =
+          'Unable to load pending applications.';
+        this.loading = false;
+      }
+
+    });
+  }
+
+  review(id: string): void {
+    this.router.navigate([
+      '/staff/approve-policies',
+      id
+    ]);
+  }
+}
