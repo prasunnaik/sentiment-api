@@ -1,608 +1,927 @@
-package com.insurewise.auth.controller;
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, map } from 'rxjs';
 
-import com.insurewise.auth.dto.request.StaffCreateRequest;
-import com.insurewise.auth.dto.request.StaffUpdateRequest;
-import com.insurewise.auth.dto.response.StaffProfileResponse;
-import com.insurewise.auth.service.StaffUserService;
-import jakarta.validation.Valid;
-import java.util.List;
-import java.util.UUID;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
+import { API_CONFIG } from '../../core/environment/api.config';
 
-@RestController
-@RequestMapping("/api/staff/users")
-@PreAuthorize("hasRole('STAFF')")
-public class StaffUserManagementController {
+import {
+  StaffUser,
+  StaffCreateRequest,
+  StaffUpdateRequest
+} from '../../types/br04-05.types';
 
-    private final StaffUserService staffUserService;
+@Injectable({
+  providedIn: 'root'
+})
+export class StaffUserApiService {
 
-    public StaffUserManagementController(
-            StaffUserService staffUserService) {
+  private readonly url =
+    `${API_CONFIG.baseUrl}/api/staff/users`;
 
-        this.staffUserService = staffUserService;
-    }
+  constructor(
+    private readonly http: HttpClient
+  ) {}
 
-    @PostMapping
-    public ResponseEntity<StaffProfileResponse> create(
-            @Valid @RequestBody StaffCreateRequest request) {
+  /*
+   * GET ALL STAFF USERS
+   */
+  getAll(): Observable<StaffUser[]> {
 
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(staffUserService.create(request));
-    }
+    return this.http
+      .get<unknown[]>(this.url)
+      .pipe(
+        map(users =>
+          users.map(user =>
+            this.normalizeUser(user)
+          )
+        )
+      );
+  }
 
-    @GetMapping
-    public List<StaffProfileResponse> list() {
+  /*
+   * GET STAFF USER BY ID
+   */
+  getById(id: string): Observable<StaffUser> {
 
-        return staffUserService.list();
-    }
+    return this.http
+      .get<unknown>(`${this.url}/${id}`)
+      .pipe(
+        map(user =>
+          this.normalizeUser(user)
+        )
+      );
+  }
 
-    @GetMapping("/{id}")
-    public StaffProfileResponse get(
-            @PathVariable UUID id) {
+  /*
+   * CREATE STAFF USER
+   */
+  create(
+    request: StaffCreateRequest
+  ): Observable<StaffUser> {
 
-        return staffUserService.get(id);
-    }
+    return this.http
+      .post<unknown>(
+        this.url,
+        request
+      )
+      .pipe(
+        map(user =>
+          this.normalizeUser(user)
+        )
+      );
+  }
 
-    @PutMapping("/{id}")
-    public StaffProfileResponse update(
-            @PathVariable UUID id,
-            @Valid @RequestBody StaffUpdateRequest request) {
+  /*
+   * UPDATE STAFF USER
+   */
+  update(
+    id: string,
+    request: StaffUpdateRequest
+  ): Observable<StaffUser> {
 
-        return staffUserService.update(
-                id,
-                request);
-    }
+    return this.http
+      .put<unknown>(
+        `${this.url}/${id}`,
+        request
+      )
+      .pipe(
+        map(user =>
+          this.normalizeUser(user)
+        )
+      );
+  }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(
-            @PathVariable UUID id) {
+  /*
+   * UPLOAD PROFILE PICTURE
+   *
+   * Backend:
+   * POST /api/staff/users/{id}/profile-picture
+   *
+   * Multipart field name must be:
+   * file
+   */
+  uploadProfilePicture(
+    id: string,
+    file: File
+  ): Observable<StaffUser> {
 
-        staffUserService.delete(id);
+    const formData =
+      new FormData();
 
-        return ResponseEntity.noContent().build();
-    }
+    formData.append(
+      'file',
+      file
+    );
 
-    @PostMapping(
-            value = "/{id}/profile-picture",
-            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public StaffProfileResponse uploadProfilePicture(
-            @PathVariable UUID id,
-            @RequestPart("file") MultipartFile file) {
+    return this.http
+      .post<unknown>(
+        `${this.url}/${id}/profile-picture`,
+        formData
+      )
+      .pipe(
+        map(user =>
+          this.normalizeUser(user)
+        )
+      );
+  }
 
-        return staffUserService.uploadProfilePicture(
-                id,
-                file);
-    }
+  /*
+   * DELETE PROFILE PICTURE
+   */
+  deleteProfilePicture(
+    id: string
+  ): Observable<void> {
 
-    @DeleteMapping("/{id}/profile-picture")
-    public ResponseEntity<Void> deleteProfilePicture(
-            @PathVariable UUID id) {
+    return this.http.delete<void>(
+      `${this.url}/${id}/profile-picture`
+    );
+  }
 
-        staffUserService.deleteProfilePicture(id);
+  /*
+   * DELETE STAFF USER
+   */
+  delete(
+    id: string
+  ): Observable<void> {
 
-        return ResponseEntity.noContent().build();
-    }
+    return this.http.delete<void>(
+      `${this.url}/${id}`
+    );
+  }
+
+  /*
+   * NORMALIZE BACKEND RESPONSE
+   *
+   * Backend returns:
+   *
+   * "full_name": "Paarth Chandan"
+   *
+   * Angular uses:
+   *
+   * fullName
+   */
+  private normalizeUser(
+    response: unknown
+  ): StaffUser {
+
+    const user =
+      response as {
+        id?: string;
+
+        fullName?: string;
+        full_name?: string;
+        fullname?: string;
+        name?: string;
+
+        email?: string;
+        address?: string;
+
+        profilePictureUrl?: string | null;
+      };
+
+    return {
+
+      id:
+        user.id ?? '',
+
+      fullName:
+        user.fullName ??
+        user.full_name ??
+        user.fullname ??
+        user.name ??
+        '',
+
+      email:
+        user.email ?? '',
+
+      address:
+        user.address ?? '',
+
+      profilePictureUrl:
+        user.profilePictureUrl ?? null
+    };
+  }
 }
-package com.insurewise.auth.dto.request;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 
-public record StaffCreateRequest(
 
-        @NotBlank
-        @Size(max = 120)
-        String fullName,
 
-        @NotBlank
-        @Email
-        @Size(max = 160)
-        String email,
 
-        @NotBlank
-        @Size(max = 240)
-        String address,
 
-        @NotBlank
-        @Size(min = 8, max = 100)
-        String password
-) {
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import {
+  FormBuilder,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators
+} from '@angular/forms';
+import {
+  ActivatedRoute,
+  Router
+} from '@angular/router';
+
+import {
+  StaffUserApiService
+} from '../../../services/api/staff-user-api.service';
+
+import {
+  StaffCreateRequest,
+  StaffUpdateRequest
+} from '../../../types/br04-05.types';
+
+@Component({
+  selector: 'app-manage-users-new',
+  standalone: true,
+  imports: [
+    CommonModule,
+    ReactiveFormsModule
+  ],
+  templateUrl: './manage-users-new.component.html',
+  styleUrls: ['./manage-users-new.component.css']
+})
+export class ManageUsersNewComponent implements OnInit {
+
+  userId: string | null = null;
+
+  isEdit = false;
+
+  loading = false;
+  saving = false;
+
+  error = '';
+  success = '';
+
+  selectedFile: File | null = null;
+
+  previewUrl: string | null = null;
+
+  /*
+   * Used when editing an existing user.
+   *
+   * If the user clicks Remove and saves,
+   * the existing S3 profile picture will be deleted.
+   */
+  removeExistingPicture = false;
+
+  form: FormGroup<{
+    fullname: FormControl<string>;
+    email: FormControl<string>;
+    address: FormControl<string>;
+    password: FormControl<string>;
+  }>;
+
+  constructor(
+    private readonly fb: FormBuilder,
+    private readonly staffUserApi: StaffUserApiService,
+    private readonly route: ActivatedRoute,
+    private readonly router: Router
+  ) {
+
+    this.form =
+      this.fb.nonNullable.group({
+
+        fullname: [
+          '',
+          [
+            Validators.required,
+            Validators.minLength(2),
+            Validators.maxLength(100),
+
+            Validators.pattern(
+              /^[A-Za-z]+(?:[ '-][A-Za-z]+)*$/
+            )
+          ]
+        ],
+
+        email: [
+          '',
+          [
+            Validators.required,
+            Validators.email,
+            Validators.maxLength(150)
+          ]
+        ],
+
+        address: [
+          '',
+          [
+            Validators.required,
+            Validators.minLength(5),
+            Validators.maxLength(250)
+          ]
+        ],
+
+        /*
+         * Backend requires minimum 8 characters.
+         */
+        password: [
+          '',
+          [
+            Validators.required,
+            Validators.minLength(8),
+            Validators.maxLength(100)
+          ]
+        ]
+      });
+  }
+
+  ngOnInit(): void {
+
+    this.userId =
+      this.route.snapshot.paramMap.get('id');
+
+    this.isEdit =
+      !!this.userId;
+
+    /*
+     * Password is required only
+     * when creating a staff user.
+     */
+    if (this.isEdit) {
+
+      this.form.controls.password.clearValidators();
+
+      this.form.controls.password.updateValueAndValidity();
+    }
+
+    if (this.userId) {
+
+      this.loadUser(
+        this.userId
+      );
+    }
+  }
+
+  /*
+   * =========================
+   * LOAD USER
+   * =========================
+   */
+  loadUser(id: string): void {
+
+    this.loading = true;
+
+    this.error = '';
+
+    this.staffUserApi
+      .getById(id)
+      .subscribe({
+
+        next: (user) => {
+
+          this.form.patchValue({
+
+            fullname:
+              user.fullName,
+
+            email:
+              user.email,
+
+            address:
+              user.address
+          });
+
+          this.previewUrl =
+            user.profilePictureUrl ?? null;
+
+          this.removeExistingPicture =
+            false;
+
+          this.loading = false;
+        },
+
+        error: (error: unknown) => {
+
+          console.error(
+            'Unable to load staff user.',
+            error
+          );
+
+          this.error =
+            'Unable to load staff user.';
+
+          this.loading = false;
+        }
+      });
+  }
+
+  /*
+   * =========================
+   * SELECT PROFILE PICTURE
+   * =========================
+   */
+  onFileSelected(event: Event): void {
+
+    const input =
+      event.target as HTMLInputElement;
+
+    if (
+      !input.files ||
+      input.files.length === 0
+    ) {
+      return;
+    }
+
+    const file =
+      input.files[0];
+
+    /*
+     * Allowed image formats.
+     */
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp'
+    ];
+
+    if (
+      !allowedTypes.includes(
+        file.type
+      )
+    ) {
+
+      this.error =
+        'Only JPG, PNG or WEBP images are allowed.';
+
+      input.value = '';
+
+      this.selectedFile = null;
+
+      return;
+    }
+
+    /*
+     * Maximum 5 MB.
+     */
+    const maxSize =
+      5 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+
+      this.error =
+        'Profile picture must be 5 MB or smaller.';
+
+      input.value = '';
+
+      this.selectedFile = null;
+
+      return;
+    }
+
+    this.error = '';
+
+    this.selectedFile =
+      file;
+
+    this.removeExistingPicture =
+      false;
+
+    /*
+     * Browser preview.
+     */
+    const reader =
+      new FileReader();
+
+    reader.onload = () => {
+
+      this.previewUrl =
+        reader.result as string;
+    };
+
+    reader.readAsDataURL(file);
+  }
+
+  /*
+   * =========================
+   * REMOVE PROFILE PICTURE
+   * =========================
+   */
+  removeSelectedPicture(): void {
+
+    this.selectedFile = null;
+
+    this.previewUrl = null;
+
+    /*
+     * For an existing user, remember
+     * that the S3 picture must be deleted.
+     */
+    if (this.isEdit) {
+
+      this.removeExistingPicture =
+        true;
+    }
+  }
+
+  /*
+   * =========================
+   * SAVE
+   * =========================
+   */
+  save(): void {
+
+    this.error = '';
+
+    this.success = '';
+
+    /*
+     * Validate form.
+     */
+    if (this.form.invalid) {
+
+      this.form.markAllAsTouched();
+
+      return;
+    }
+
+    this.saving = true;
+
+    /*
+     * =========================
+     * EDIT USER
+     * =========================
+     */
+    if (
+      this.isEdit &&
+      this.userId
+    ) {
+
+      this.updateUser(
+        this.userId
+      );
+
+      return;
+    }
+
+    /*
+     * =========================
+     * CREATE USER
+     * =========================
+     */
+    this.createUser();
+  }
+
+  /*
+   * =========================
+   * CREATE USER
+   * =========================
+   */
+  private createUser(): void {
+
+    const request: StaffCreateRequest = {
+
+      fullName:
+        this.form.controls.fullname.value.trim(),
+
+      email:
+        this.form.controls.email.value.trim(),
+
+      address:
+        this.form.controls.address.value.trim(),
+
+      password:
+        this.form.controls.password.value
+    };
+
+    this.staffUserApi
+      .create(request)
+      .subscribe({
+
+        next: (createdUser) => {
+
+          /*
+           * User has now been created.
+           *
+           * If a profile picture was selected,
+           * upload it using the newly-created
+           * user's ID.
+           */
+          if (
+            this.selectedFile &&
+            createdUser.id
+          ) {
+
+            this.uploadProfilePicture(
+              createdUser.id
+            );
+
+            return;
+          }
+
+          /*
+           * No picture selected.
+           */
+          this.finishSave(
+            'Staff user created successfully.'
+          );
+        },
+
+        error: (error: unknown) => {
+
+          this.saving = false;
+
+          this.error =
+            this.getErrorMessage(
+              error,
+              'Unable to create staff user.'
+            );
+        }
+      });
+  }
+
+  /*
+   * =========================
+   * UPDATE USER
+   * =========================
+   */
+  private updateUser(
+    id: string
+  ): void {
+
+    const request: StaffUpdateRequest = {
+
+      fullName:
+        this.form.controls.fullname.value.trim(),
+
+      email:
+        this.form.controls.email.value.trim(),
+
+      address:
+        this.form.controls.address.value.trim(),
+
+      /*
+       * Keep existing password unchanged
+       * unless you later add a password field
+       * for edit.
+       */
+      password: undefined
+    };
+
+    this.staffUserApi
+      .update(
+        id,
+        request
+      )
+      .subscribe({
+
+        next: () => {
+
+          /*
+           * New picture selected.
+           */
+          if (this.selectedFile) {
+
+            this.uploadProfilePicture(id);
+
+            return;
+          }
+
+          /*
+           * User removed existing picture.
+           */
+          if (this.removeExistingPicture) {
+
+            this.deleteProfilePicture(id);
+
+            return;
+          }
+
+          this.finishSave(
+            'Staff user updated successfully.'
+          );
+        },
+
+        error: (error: unknown) => {
+
+          this.saving = false;
+
+          this.error =
+            this.getErrorMessage(
+              error,
+              'Unable to update staff user.'
+            );
+        }
+      });
+  }
+
+  /*
+   * =========================
+   * UPLOAD PROFILE PICTURE
+   * =========================
+   */
+  private uploadProfilePicture(
+    id: string
+  ): void {
+
+    if (!this.selectedFile) {
+
+      this.finishSave(
+        this.isEdit
+          ? 'Staff user updated successfully.'
+          : 'Staff user created successfully.'
+      );
+
+      return;
+    }
+
+    this.staffUserApi
+      .uploadProfilePicture(
+        id,
+        this.selectedFile
+      )
+      .subscribe({
+
+        next: () => {
+
+          this.finishSave(
+            this.isEdit
+              ? 'Staff user and profile picture updated successfully.'
+              : 'Staff user and profile picture created successfully.'
+          );
+        },
+
+        error: (error: unknown) => {
+
+          /*
+           * The staff user itself was already created,
+           * but the profile picture upload failed.
+           */
+          this.saving = false;
+
+          this.error =
+            this.getErrorMessage(
+              error,
+              'Staff user was created, but the profile picture could not be uploaded.'
+            );
+        }
+      });
+  }
+
+  /*
+   * =========================
+   * DELETE PROFILE PICTURE
+   * =========================
+   */
+  private deleteProfilePicture(
+    id: string
+  ): void {
+
+    this.staffUserApi
+      .deleteProfilePicture(id)
+      .subscribe({
+
+        next: () => {
+
+          this.finishSave(
+            'Staff user updated successfully.'
+          );
+        },
+
+        error: (error: unknown) => {
+
+          this.saving = false;
+
+          this.error =
+            this.getErrorMessage(
+              error,
+              'Staff user was updated, but the profile picture could not be deleted.'
+            );
+        }
+      });
+  }
+
+  /*
+   * =========================
+   * FINISH
+   * =========================
+   */
+  private finishSave(
+    message: string
+  ): void {
+
+    this.saving = false;
+
+    this.success = message;
+
+    setTimeout(() => {
+
+      this.router.navigate([
+        '/staff/manage-users'
+      ]);
+
+    }, 700);
+  }
+
+  /*
+   * =========================
+   * CANCEL
+   * =========================
+   */
+  cancel(): void {
+
+    this.router.navigate([
+      '/staff/manage-users'
+    ]);
+  }
+
+  /*
+   * =========================
+   * VALIDATION HELPERS
+   * =========================
+   */
+
+  get fullnameInvalid(): boolean {
+
+    const control =
+      this.form.controls.fullname;
+
+    return (
+      control.invalid &&
+      (
+        control.dirty ||
+        control.touched
+      )
+    );
+  }
+
+  get emailInvalid(): boolean {
+
+    const control =
+      this.form.controls.email;
+
+    return (
+      control.invalid &&
+      (
+        control.dirty ||
+        control.touched
+      )
+    );
+  }
+
+  get addressInvalid(): boolean {
+
+    const control =
+      this.form.controls.address;
+
+    return (
+      control.invalid &&
+      (
+        control.dirty ||
+        control.touched
+      )
+    );
+  }
+
+  get passwordInvalid(): boolean {
+
+    const control =
+      this.form.controls.password;
+
+    return (
+      control.invalid &&
+      (
+        control.dirty ||
+        control.touched
+      )
+    );
+  }
+
+  /*
+   * =========================
+   * ERROR MESSAGE
+   * =========================
+   */
+  private getErrorMessage(
+    error: unknown,
+    defaultMessage: string
+  ): string {
+
+    if (
+      error !== null &&
+      typeof error === 'object' &&
+      'error' in error
+    ) {
+
+      const response =
+        error as {
+          error?: {
+            message?: string;
+          };
+        };
+
+      return (
+        response.error?.message ??
+        defaultMessage
+      );
+    }
+
+    return defaultMessage;
+  }
 }
-package com.insurewise.auth.service;
 
-import com.insurewise.auth.dto.request.StaffCreateRequest;
-import com.insurewise.auth.dto.request.StaffUpdateRequest;
-import com.insurewise.auth.dto.response.StaffProfileResponse;
-import com.insurewise.auth.entity.StaffUser;
-import com.insurewise.auth.exception.DuplicateEmailException;
-import com.insurewise.auth.exception.StaffUserNotFoundException;
-import com.insurewise.auth.repository.CustomerRepository;
-import com.insurewise.auth.repository.StaffUserRepository;
-import com.insurewise.common.dto.PresignedUrlResponse;
-import com.insurewise.common.service.S3StorageService;
-import java.util.List;
-import java.util.UUID;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
-@Service
-@Transactional
-public class StaffUserService {
 
-    private final StaffUserRepository staffUserRepository;
-    private final CustomerRepository customerRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final S3StorageService storageService;
 
-    public StaffUserService(
-            StaffUserRepository staffUserRepository,
-            CustomerRepository customerRepository,
-            PasswordEncoder passwordEncoder,
-            S3StorageService storageService) {
 
-        this.staffUserRepository = staffUserRepository;
-        this.customerRepository = customerRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.storageService = storageService;
-    }
-
-    public StaffProfileResponse create(
-            StaffCreateRequest request) {
-
-        try {
-            String email = request.email().toLowerCase();
-
-            validateEmailNotUsed(email);
-
-            StaffUser staffUser = new StaffUser(
-                    request.fullName(),
-                    email,
-                    request.address(),
-                    passwordEncoder.encode(request.password()));
-
-            return toResponse(
-                    staffUserRepository.save(staffUser));
-
-        } catch (Exception exception) {
-            System.err.println(
-                    "Error in StaffUserService.create: "
-                            + exception.getMessage());
-
-            throw exception;
-        }
-    }
-
-    public StaffProfileResponse uploadProfilePicture(
-            UUID id,
-            MultipartFile file) {
-
-        try {
-            StaffUser staffUser = find(id);
-
-            if (file == null || file.isEmpty()) {
-                throw new IllegalArgumentException(
-                        "Profile picture file cannot be empty");
-            }
-
-            String oldS3Key =
-                    staffUser.getProfilePictureS3Key();
-
-            String newS3Key =
-                    storageService.upload(
-                            file,
-                            "profile-pictures",
-                            staffUser.getId());
-
-            staffUser.updateProfilePictureS3Key(
-                    newS3Key);
-
-            if (oldS3Key != null
-                    && !oldS3Key.isBlank()) {
-
-                storageService.delete(oldS3Key);
-            }
-
-            return toResponse(staffUser);
-
-        } catch (Exception exception) {
-
-            System.err.println(
-                    "Error in StaffUserService.uploadProfilePicture: "
-                            + exception.getMessage());
-
-            exception.printStackTrace();
-
-            throw exception;
-        }
-    }
-
-    public void deleteProfilePicture(UUID id) {
-
-        try {
-            StaffUser staffUser = find(id);
-
-            String s3Key =
-                    staffUser.getProfilePictureS3Key();
-
-            if (s3Key != null && !s3Key.isBlank()) {
-                storageService.delete(s3Key);
-            }
-
-            staffUser.updateProfilePictureS3Key(null);
-
-        } catch (Exception exception) {
-
-            System.err.println(
-                    "Error in StaffUserService.deleteProfilePicture: "
-                            + exception.getMessage());
-
-            exception.printStackTrace();
-
-            throw exception;
-        }
-    }
-
-    @Transactional(readOnly = true)
-    public List<StaffProfileResponse> list() {
-
-        try {
-            return staffUserRepository.findAll()
-                    .stream()
-                    .map(this::toResponse)
-                    .toList();
-
-        } catch (Exception exception) {
-
-            System.err.println(
-                    "Error in StaffUserService.list: "
-                            + exception.getMessage());
-
-            throw exception;
-        }
-    }
-
-    @Transactional(readOnly = true)
-    public StaffProfileResponse get(UUID id) {
-
-        try {
-            return toResponse(find(id));
-
-        } catch (Exception exception) {
-
-            System.err.println(
-                    "Error in StaffUserService.get: "
-                            + exception.getMessage());
-
-            throw exception;
-        }
-    }
-
-    public StaffProfileResponse update(
-            UUID id,
-            StaffUpdateRequest request) {
-
-        try {
-
-            StaffUser staffUser = find(id);
-
-            String email =
-                    request.email().toLowerCase();
-
-            boolean emailUsedByAnotherStaff =
-                    staffUserRepository
-                            .findByEmailIgnoreCase(email)
-                            .filter(existing ->
-                                    !existing.getId().equals(id))
-                            .isPresent();
-
-            boolean emailUsedByCustomer =
-                    customerRepository
-                            .existsByEmailIgnoreCase(email);
-
-            if (emailUsedByAnotherStaff
-                    || emailUsedByCustomer) {
-
-                throw new DuplicateEmailException(email);
-            }
-
-            String passwordHash = null;
-
-            if (request.password() != null
-                    && !request.password().isBlank()) {
-
-                passwordHash =
-                        passwordEncoder.encode(
-                                request.password());
-            }
-
-            staffUser.update(
-                    request.fullName(),
-                    email,
-                    request.address(),
-                    passwordHash);
-
-            return toResponse(staffUser);
-
-        } catch (Exception exception) {
-
-            System.err.println(
-                    "Error in StaffUserService.update: "
-                            + exception.getMessage());
-
-            throw exception;
-        }
-    }
-
-    public void delete(UUID id) {
-
-        try {
-
-            StaffUser staffUser = find(id);
-
-            String s3Key =
-                    staffUser.getProfilePictureS3Key();
-
-            if (s3Key != null
-                    && !s3Key.isBlank()) {
-
-                storageService.delete(s3Key);
-            }
-
-            staffUserRepository.delete(staffUser);
-
-        } catch (Exception exception) {
-
-            System.err.println(
-                    "Error in StaffUserService.delete: "
-                            + exception.getMessage());
-
-            throw exception;
-        }
-    }
-
-    private StaffUser find(UUID id) {
-
-        return staffUserRepository.findById(id)
-                .orElseThrow(() ->
-                        new StaffUserNotFoundException(id));
-    }
-
-    private void validateEmailNotUsed(
-            String email) {
-
-        if (staffUserRepository
-                .existsByEmailIgnoreCase(email)
-                || customerRepository
-                .existsByEmailIgnoreCase(email)) {
-
-            throw new DuplicateEmailException(email);
-        }
-    }
-
-    private StaffProfileResponse toResponse(
-            StaffUser staffUser) {
-
-        String profilePictureUrl = null;
-
-        String s3Key =
-                staffUser.getProfilePictureS3Key();
-
-        if (s3Key != null
-                && !s3Key.isBlank()) {
-
-            PresignedUrlResponse download =
-                    storageService
-                            .getPresignedDownloadUrl(
-                                    s3Key);
-
-            profilePictureUrl =
-                    download.url();
-        }
-
-        return new StaffProfileResponse(
-                staffUser.getId(),
-                staffUser.getFullName(),
-                staffUser.getEmail(),
-                staffUser.getAddress(),
-                profilePictureUrl);
-    }
-}
-package com.insurewise.auth.dto.response;
-
-import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.UUID;
-
-public record StaffProfileResponse(
-        UUID id,
-
-        @JsonProperty("full_name")
-        String fullName,
-
-        String email,
-
-        String address,
-
-        String profilePictureUrl
-) {
-}
-package com.insurewise.auth.entity;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
-import java.time.LocalDateTime;
-import java.util.UUID;
-
-@Entity
-@Table(name = "staff_users")
-public class StaffUser {
-
-    @Id
-    private UUID id;
-
-    @Column(name = "full_name", nullable = false, length = 120)
-    private String fullName;
-
-    @Column(nullable = false, unique = true, length = 160)
-    private String email;
-
-    @Column(nullable = false, length = 240)
-    private String address;
-
-    @Column(name = "password_hash", nullable = false, length = 100)
-    private String passwordHash;
-
-    @Column(name = "profile_picture_s3_key", length = 600)
-    private String profilePictureS3Key;
-
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
-
-    protected StaffUser() {
-    }
-
-    public StaffUser(
-            String fullName,
-            String email,
-            String address,
-            String passwordHash) {
-
-        this.id = UUID.randomUUID();
-        this.fullName = fullName;
-        this.email = email.toLowerCase();
-        this.address = address;
-        this.passwordHash = passwordHash;
-    }
-
-    @PrePersist
-    void prePersist() {
-        if (createdAt == null) {
-            createdAt = LocalDateTime.now();
-        }
-    }
-
-    public UUID getId() {
-        return id;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getAddress() {
-        return address;
-    }
-
-    public String getPasswordHash() {
-        return passwordHash;
-    }
-
-    public String getProfilePictureS3Key() {
-        return profilePictureS3Key;
-    }
-
-    public void updateProfilePictureS3Key(String s3Key) {
-        this.profilePictureS3Key = s3Key;
-    }
-
-    public void update(
-            String fullName,
-            String email,
-            String address,
-            String passwordHash) {
-
-        this.fullName = fullName;
-        this.email = email.toLowerCase();
-        this.address = address;
-
-        if (passwordHash != null && !passwordHash.isBlank()) {
-            this.passwordHash = passwordHash;
-        }
-    }
-}
-package com.insurewise.auth.repository;
-
-import com.insurewise.auth.entity.StaffUser;
-import java.util.Optional;
-import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-public interface StaffUserRepository extends JpaRepository<StaffUser, UUID> {
-    boolean existsByEmailIgnoreCase(String email);
-
-    Optional<StaffUser> findByEmailIgnoreCase(String email);
-}
-package com.insurewise.auth.dto.request;
-
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-
-public record StaffUpdateRequest(
-
-        @NotBlank
-        @Size(max = 120)
-        String fullName,
-
-        @NotBlank
-        @Email
-        @Size(max = 160)
-        String email,
-
-        @NotBlank
-        @Size(max = 240)
-        String address,
-
-        @Size(min = 8, max = 100)
-        String password
-) {
-}
-// filename: src/main/java/com/insurewise/common/service/S3StorageService.java
-// Code Generated by Sidekick is for learning and experimentation purposes only.
-
-package com.insurewise.common.service;
-
-import com.insurewise.common.dto.PresignedUrlResponse;
-import java.util.UUID;
-import org.springframework.web.multipart.MultipartFile;
-
-public interface S3StorageService {
-    String upload(
-            MultipartFile file,
-            String folder,
-            UUID ownerId);
-
-    String uploadGenerated(
-            byte[] content,
-            String fileName,
-            String contentType,
-            String folder,
-            UUID ownerId);
-
-    PresignedUrlResponse getPresignedDownloadUrl(String s3Key);
-
-    void delete(String s3Key);
-}
