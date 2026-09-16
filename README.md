@@ -12,7 +12,7 @@
         : 'Create a new staff account' }}
     </p>
 
-    <div *ngIf="loading">
+    <div *ngIf="loading" class="loading">
       Loading...
     </div>
 
@@ -21,31 +21,32 @@
       [formGroup]="form"
       (ngSubmit)="save()">
 
-      <!-- NAME -->
+      <!-- FULL NAME -->
 
       <div class="field">
 
-        <label>
-          Name <span>*</span>
+        <label for="fullname">
+          Full Name <span>*</span>
         </label>
 
         <input
+          id="fullname"
           type="text"
-          formControlName="name"
+          formControlName="fullname"
           maxlength="100"
-          placeholder="Enter name">
+          placeholder="Enter full name">
 
-        <small *ngIf="nameInvalid">
+        <small *ngIf="fullnameInvalid">
 
-          <span *ngIf="form.controls.name.errors?.['required']">
-            Name is required.
+          <span *ngIf="form.controls.fullname.errors?.['required']">
+            Full name is required.
           </span>
 
-          <span *ngIf="form.controls.name.errors?.['pattern']">
+          <span *ngIf="form.controls.fullname.errors?.['pattern']">
             Name can contain letters, spaces, apostrophes and hyphens only.
           </span>
 
-          <span *ngIf="form.controls.name.errors?.['minlength']">
+          <span *ngIf="form.controls.fullname.errors?.['minlength']">
             Name must contain at least 2 characters.
           </span>
 
@@ -58,11 +59,12 @@
 
       <div class="field">
 
-        <label>
+        <label for="email">
           Email <span>*</span>
         </label>
 
         <input
+          id="email"
           type="email"
           formControlName="email"
           maxlength="150"
@@ -79,11 +81,12 @@
 
       <div class="field">
 
-        <label>
+        <label for="address">
           Address <span>*</span>
         </label>
 
         <textarea
+          id="address"
           rows="4"
           formControlName="address"
           maxlength="250"
@@ -103,11 +106,12 @@
         class="field"
         *ngIf="!isEdit">
 
-        <label>
+        <label for="password">
           Password <span>*</span>
         </label>
 
         <input
+          id="password"
           type="password"
           formControlName="password"
           maxlength="100"
@@ -134,11 +138,12 @@
 
       <div class="field">
 
-        <label>
+        <label for="profilePicture">
           Profile Picture
         </label>
 
         <input
+          id="profilePicture"
           type="file"
           accept=".jpg,.jpeg,.png,.webp"
           (change)="onFileSelected($event)">
@@ -215,6 +220,13 @@
 
 </div>
 
+
+
+
+
+
+
+
 .page {
   padding: 24px;
 }
@@ -229,11 +241,18 @@
 
 .form-card h2 {
   margin: 0;
+  font-size: 26px;
 }
 
 .subtitle {
   color: #777;
+  margin-top: 8px;
   margin-bottom: 24px;
+}
+
+.loading {
+  color: #777;
+  padding: 20px 0;
 }
 
 .field {
@@ -257,6 +276,8 @@ textarea {
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 5px;
+  font-size: 14px;
+  font-family: inherit;
 }
 
 input:focus,
@@ -265,14 +286,21 @@ textarea:focus {
   border-color: #008c95;
 }
 
+textarea {
+  resize: vertical;
+}
+
 small {
   display: block;
   margin-top: 5px;
   color: #777;
+  font-size: 12px;
 }
 
 small span {
+  display: block;
   color: #c62828;
+  margin-top: 3px;
 }
 
 .preview {
@@ -294,6 +322,11 @@ small span {
   background: white;
   padding: 6px 10px;
   border-radius: 4px;
+  cursor: pointer;
+}
+
+.remove:hover {
+  background: #fff5f5;
 }
 
 .actions {
@@ -308,29 +341,46 @@ small span {
   padding: 10px 18px;
   border-radius: 5px;
   cursor: pointer;
+  font-size: 14px;
 }
 
 .primary {
   border: 0;
+  background: #008c95;
+  color: white;
+}
+
+.primary:hover:not(:disabled) {
+  background: #00747b;
 }
 
 .secondary {
   border: 1px solid #aaa;
   background: white;
+  color: #333;
+}
+
+.secondary:hover {
+  background: #f5f5f5;
 }
 
 .primary:disabled {
   opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .error {
   color: #c62828;
   margin: 12px 0;
+  padding: 10px;
+  background: #fff5f5;
+  border-radius: 5px;
 }
 
 .success {
   color: #2e7d32;
   margin: 12px 0;
+  padding: 10px;
+  background: #f1f8f2;
+  border-radius: 5px;
 }
-
-
