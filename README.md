@@ -1,234 +1,249 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+import { DashboardApiService } from '../../../services/api/dashboard-api.service';
+import { DashboardMetrics } from '../../../types/br04-05.types';
+
+@Component({
+  selector: 'app-dashboard',
+  standalone: true,
+  imports: [CommonModule],
+  templateUrl: './dashboard.component.html',
+  styleUrls: ['./dashboard.component.css']
+})
+export class DashboardComponent implements OnInit {
+
+  metrics: DashboardMetrics = {
+    customers: 0,
+    staff: 0,
+    categories: 0,
+    policies: 0,
+    activePolicies: 0,
+    applications: 0,
+    claims: 0,
+    payments: 0
+  };
+
+  loading = true;
+  error = '';
+
+  constructor(
+    private dashboardApi: DashboardApiService
+  ) {}
+
+  ngOnInit(): void {
+    this.loadDashboard();
+  }
+
+  loadDashboard(): void {
+    this.loading = true;
+
+    this.dashboardApi.getMetrics().subscribe({
+      next: response => {
+        this.metrics = response;
+        this.loading = false;
+      },
+      error: () => {
+        this.error = 'Unable to load dashboard data.';
+        this.loading = false;
+      }
+    });
+  }
+}
 <div class="page">
 
-  <div class="form-card">
+  <div class="page-header">
+    <div>
+      <h2>Dashboard</h2>
+      <p>Overview of insurance platform activity</p>
+    </div>
+  </div>
 
-    <h2>
-      {{ isEdit ? 'Edit Policy' : 'Add Policy' }}
-    </h2>
+  <div *ngIf="loading" class="message">
+    Loading dashboard...
+  </div>
 
-    <p>
-      {{ isEdit
-        ? 'Update the insurance policy details.'
-        : 'Create a new insurance policy.'
-      }}
-    </p>
+  <div *ngIf="error" class="error">
+    {{ error }}
+  </div>
 
-    <!-- Loading -->
-    <div
-      class="loading"
-      *ngIf="loading">
+  <div class="stats-grid" *ngIf="!loading">
 
-      Loading policy...
-
+    <div class="stat-card">
+      <span>Staff Users</span>
+      <strong>{{ metrics.staff }}</strong>
     </div>
 
-    <form
-      *ngIf="!loading"
-      [formGroup]="form"
-      (ngSubmit)="save()">
-
-      <!-- Policy Name -->
-      <div class="field">
-
-        <label for="name">
-          Policy Name *
-        </label>
-
-        <input
-          id="name"
-          type="text"
-          formControlName="name"
-          maxlength="120"
-          placeholder="Enter policy name">
-
-        <small
-          *ngIf="
-            form.controls.name.invalid &&
-            form.controls.name.touched
-          ">
-
-          Policy name is required and can contain
-          letters, numbers, spaces, hyphens and apostrophes.
-
-        </small>
-
-      </div>
-
-
-      <!-- Category -->
-      <div class="field">
-
-        <label for="categoryId">
-          Category *
-        </label>
-
-        <select
-          id="categoryId"
-          formControlName="categoryId">
-
-          <option value="">
-            Select category
-          </option>
-
-          <option
-            *ngFor="let category of categories"
-            [value]="category.id">
-
-            {{ category.name }}
-
-          </option>
-
-        </select>
-
-        <small
-          *ngIf="
-            form.controls.categoryId.invalid &&
-            form.controls.categoryId.touched
-          ">
-
-          Category is required.
-
-        </small>
-
-      </div>
-
-
-      <!-- Premium + Coverage -->
-      <div class="two-columns">
-
-        <!-- Premium -->
-        <div class="field">
-
-          <label for="premiumAmount">
-            Premium Amount *
-          </label>
-
-          <input
-            id="premiumAmount"
-            type="number"
-            min="0.01"
-            step="0.01"
-            formControlName="premiumAmount"
-            placeholder="Enter premium amount">
-
-          <small
-            *ngIf="
-              form.controls.premiumAmount.invalid &&
-              form.controls.premiumAmount.touched
-            ">
-
-            Premium must be greater than zero.
-
-          </small>
-
-        </div>
-
-
-        <!-- Coverage -->
-        <div class="field">
-
-          <label for="coverageAmount">
-            Coverage Amount *
-          </label>
-
-          <input
-            id="coverageAmount"
-            type="number"
-            min="0.01"
-            step="0.01"
-            formControlName="coverageAmount"
-            placeholder="Enter coverage amount">
-
-          <small
-            *ngIf="
-              form.controls.coverageAmount.invalid &&
-              form.controls.coverageAmount.touched
-            ">
-
-            Coverage must be greater than zero.
-
-          </small>
-
-        </div>
-
-      </div>
-
-
-      <!-- Duration -->
-      <div class="field">
-
-        <label for="durationLabel">
-          Duration *
-        </label>
-
-        <input
-          id="durationLabel"
-          type="text"
-          maxlength="40"
-          formControlName="durationLabel"
-          placeholder="Example: 1 Year">
-
-        <small
-          *ngIf="
-            form.controls.durationLabel.invalid &&
-            form.controls.durationLabel.touched
-          ">
-
-          Duration is required.
-
-        </small>
-
-      </div>
-
-
-      <!-- Error -->
-      <div
-        class="error"
-        *ngIf="error">
-
-        {{ error }}
-
-      </div>
-
-
-      <!-- Success -->
-      <div
-        class="success"
-        *ngIf="success">
-
-        {{ success }}
-
-      </div>
-
-
-      <!-- Buttons -->
-      <div class="actions">
-
-        <button
-          type="button"
-          class="secondary"
-          (click)="cancel()">
-
-          Cancel
-
-        </button>
-
-        <button
-          type="submit"
-          class="primary"
-          [disabled]="saving">
-
-          {{ saving
-            ? 'Saving...'
-            : (isEdit ? 'Update Policy' : 'Save Policy')
-          }}
-
-        </button>
-
-      </div>
-
-    </form>
+    <div class="stat-card">
+      <span>Customers</span>
+      <strong>{{ metrics.customers }}</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Categories</span>
+      <strong>{{ metrics.categories }}</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Policies</span>
+      <strong>{{ metrics.policies }}</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Active Policies</span>
+      <strong>{{ metrics.activePolicies }}</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Applications</span>
+      <strong>{{ metrics.applications }}</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Claims</span>
+      <strong>{{ metrics.claims }}</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Payments</span>
+      <strong>{{ metrics.payments }}</strong>
+    </div>
 
   </div>
 
 </div>
+import { Routes } from '@angular/router';
+
+import { staffGuard } from '../core/rbac/staff.guard';
+
+export const routes: Routes = [
+
+  /*
+   * Root route
+   */
+  {
+    path: '',
+    redirectTo: 'auth/staff-login',
+    pathMatch: 'full'
+  },
+
+  /*
+   * Staff Login
+   */
+  {
+    path: 'auth/staff-login',
+    loadComponent: () =>
+      import('../pages/auth/staff-login.component')
+        .then(m => m.StaffLoginComponent)
+  },
+
+  /*
+   * Staff routes
+   */
+  {
+    path: 'staff',
+    canActivate: [staffGuard],
+    children: [
+
+      /*
+       * Dashboard
+       */
+      {
+        path: 'dashboard',
+        loadComponent: () =>
+          import('../pages/staff/dashboard/dashboard.component')
+            .then(m => m.DashboardComponent)
+      },
+
+      /*
+       * Manage Users
+       */
+      {
+        path: 'manage-users',
+        loadComponent: () =>
+          import('../pages/staff/manage-users-list/manage-users-list.component')
+            .then(m => m.ManageUsersListComponent)
+      },
+
+      /*
+       * Create Staff User
+       */
+      {
+        path: 'manage-users/new',
+        loadComponent: () =>
+          import('../pages/staff/manage-users-new/manage-users-new.component')
+            .then(m => m.ManageUsersNewComponent)
+      },
+
+      /*
+       * Edit Staff User
+       */
+      {
+        path: 'manage-users/:id/edit',
+        loadComponent: () =>
+          import('../pages/staff/manage-users-new/manage-users-new.component')
+            .then(m => m.ManageUsersNewComponent)
+      },
+
+      /*
+       * Policies
+       */
+      {
+        path: 'policies',
+        loadComponent: () =>
+          import('../pages/staff/policies-list/policies-list.component')
+            .then(m => m.PoliciesListComponent)
+      },
+
+      /*
+       * Create Policy
+       */
+      {
+        path: 'policies/new',
+        loadComponent: () =>
+          import('../pages/staff/policies-new/policies-new.component')
+            .then(m => m.PoliciesNewComponent)
+      },
+
+      /*
+       * Edit Policy
+       */
+      {
+        path: 'policies/:id/edit',
+        loadComponent: () =>
+          import('../pages/staff/policies-new/policies-new.component')
+            .then(m => m.PoliciesNewComponent)
+      },
+
+      /*
+       * Approve / Reject Policies
+       */
+      {
+        path: 'approve-policies',
+        loadComponent: () =>
+          import('../pages/staff/approve-policies-list/approve-policies-list.component')
+            .then(m => m.ApprovePoliciesListComponent)
+      },
+
+      /*
+       * Review Policy
+       */
+      {
+        path: 'approve-policies/:id',
+        loadComponent: () =>
+          import('../pages/staff/approve-policies-review/approve-policies-review.component')
+            .then(m => m.ApprovePoliciesReviewComponent)
+      }
+
+    ]
+  },
+
+  /*
+   * Unknown URL
+   */
+  {
+    path: '**',
+    redirectTo: 'auth/staff-login'
+  }
+
+];
