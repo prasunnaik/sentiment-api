@@ -16,6 +16,11 @@ import {
   StaffUserApiService
 } from '../../../services/api/staff-user-api.service';
 
+import {
+  StaffCreateRequest,
+  StaffUpdateRequest
+} from '../../../types/br04-05.types';
+
 @Component({
   selector: 'app-manage-users-new',
   standalone: true,
@@ -107,13 +112,18 @@ export class ManageUsersNewComponent implements OnInit {
     /*
      * Password is required only when creating
      * a new staff user.
+     *
+     * During edit, password is not sent.
      */
     if (this.isEdit) {
+
       this.form.controls.password.clearValidators();
+
       this.form.controls.password.updateValueAndValidity();
     }
 
     if (this.userId) {
+
       this.loadUser(this.userId);
     }
   }
@@ -127,10 +137,21 @@ export class ManageUsersNewComponent implements OnInit {
 
       next: (user) => {
 
+        /*
+         * Backend returns fullName.
+         *
+         * Angular form control is called fullname.
+         */
         this.form.patchValue({
-          fullname: user.name,
-          email: user.email,
-          address: user.address
+
+          fullname:
+            user.fullName,
+
+          email:
+            user.email,
+
+          address:
+            user.address
         });
 
         this.previewUrl =
@@ -182,6 +203,8 @@ export class ManageUsersNewComponent implements OnInit {
 
       input.value = '';
 
+      this.selectedFile = null;
+
       return;
     }
 
@@ -195,12 +218,18 @@ export class ManageUsersNewComponent implements OnInit {
 
       input.value = '';
 
+      this.selectedFile = null;
+
       return;
     }
 
     this.error = '';
+
     this.selectedFile = file;
 
+    /*
+     * Create local preview.
+     */
     const reader =
       new FileReader();
 
@@ -216,6 +245,7 @@ export class ManageUsersNewComponent implements OnInit {
   removeSelectedPicture(): void {
 
     this.selectedFile = null;
+
     this.previewUrl = null;
   }
 
@@ -224,6 +254,9 @@ export class ManageUsersNewComponent implements OnInit {
     this.error = '';
     this.success = '';
 
+    /*
+     * Validate form.
+     */
     if (this.form.invalid) {
 
       this.form.markAllAsTouched();
@@ -234,16 +267,18 @@ export class ManageUsersNewComponent implements OnInit {
     this.saving = true;
 
     /*
+     * =========================
      * EDIT STAFF USER
+     * =========================
      */
     if (
       this.isEdit &&
       this.userId
     ) {
 
-      const updateRequest = {
+      const updateRequest: StaffUpdateRequest = {
 
-        fullname:
+        fullName:
           this.form.controls.fullname.value.trim(),
 
         email:
@@ -292,11 +327,17 @@ export class ManageUsersNewComponent implements OnInit {
     }
 
     /*
+     * =========================
      * CREATE STAFF USER
+     * =========================
+     *
+     * IMPORTANT:
+     * Backend expects "fullName",
+     * not "name" or "fullname".
      */
-    const createRequest = {
+    const createRequest: StaffCreateRequest = {
 
-      name:
+      fullName:
         this.form.controls.fullname.value.trim(),
 
       email:
