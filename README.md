@@ -28,16 +28,34 @@ export class AuthService {
   private readonly loginUrl =
     `${API_CONFIG.baseUrl}/auth/staff/login`;
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient
+  ) {}
 
-  login(request: StaffLoginRequest): Observable<LoginResponse> {
+  login(
+    request: StaffLoginRequest
+  ): Observable<LoginResponse> {
 
     return this.http
-      .post<LoginResponse>(this.loginUrl, request)
+      .post<LoginResponse>(
+        this.loginUrl,
+        request
+      )
       .pipe(
-        tap(response => {
+        tap((response: LoginResponse) => {
 
-          // Backend returns "access_token", NOT "token"
+          /*
+           * Backend returns:
+           *
+           * {
+           *   "access_token": "...",
+           *   "token_type": "Bearer",
+           *   "user_id": "...",
+           *   "email": "...",
+           *   "role": "STAFF"
+           * }
+           */
+
           if (response?.access_token) {
 
             localStorage.setItem(
@@ -55,11 +73,15 @@ export class AuthService {
   }
 
   getToken(): string | null {
-    return localStorage.getItem(this.TOKEN_KEY);
+    return localStorage.getItem(
+      this.TOKEN_KEY
+    );
   }
 
   getRole(): string | null {
-    return localStorage.getItem(this.ROLE_KEY);
+    return localStorage.getItem(
+      this.ROLE_KEY
+    );
   }
 
   isLoggedIn(): boolean {
@@ -71,44 +93,12 @@ export class AuthService {
   }
 
   logout(): void {
-    localStorage.removeItem(this.TOKEN_KEY);
-    localStorage.removeItem(this.ROLE_KEY);
+    localStorage.removeItem(
+      this.TOKEN_KEY
+    );
+
+    localStorage.removeItem(
+      this.ROLE_KEY
+    );
   }
 }
-
-
-
-
-
-import { Injectable } from '@angular/core';
-import {
-  HttpInterceptor,
-  HttpRequest,
-  HttpHandler
-} from '@angular/common/http';
-
-@Injectable()
-export class AuthInterceptor implements HttpInterceptor {
-
-  intercept(req: HttpRequest<any>, next: HttpHandler) {
-
-    const token =
-      localStorage.getItem('insurewise_token');
-
-    if (token) {
-
-      req = req.clone({
-        setHeaders: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-    }
-
-    return next.handle(req);
-  }
-}
-
-
-
-
-
