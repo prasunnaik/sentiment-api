@@ -1,529 +1,588 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import {
+  FormBuilder,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators
+} from '@angular/forms';
+import {
+  ActivatedRoute,
+  Router
+} from '@angular/router';
 
-import { DashboardApiService } from '../../../services/api/dashboard-api.service';
-import { DashboardMetrics } from '../../../types/br04-05.types';
+import {
+  StaffUserApiService
+} from '../../../services/api/staff-user-api.service';
 
 @Component({
-  selector: 'app-dashboard',
+  selector: 'app-manage-users-new',
   standalone: true,
-  imports: [CommonModule],
-  templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.css']
+  imports: [
+    CommonModule,
+    ReactiveFormsModule
+  ],
+  templateUrl: './manage-users-new.component.html',
+  styleUrls: ['./manage-users-new.component.css']
 })
-export class DashboardComponent implements OnInit {
+export class ManageUsersNewComponent implements OnInit {
 
-  metrics: DashboardMetrics = {
-    customers: 0,
-    staff: 0,
-    categories: 0,
-    policies: 0,
-    activePolicies: 0,
-    applications: 0,
-    claims: 0,
-    payments: 0
-  };
+  userId: string | null = null;
+  isEdit = false;
 
-  loading = true;
+  loading = false;
+  saving = false;
+
   error = '';
+  success = '';
+
+  selectedFile: File | null = null;
+  previewUrl: string | null = null;
+
+  /*
+   * Explicit form type.
+   * This makes TypeScript recognise:
+   * name, email and address.
+   */
+  form: FormGroup<{
+    name: FormControl<string>;
+    email: FormControl<string>;
+    address: FormControl<string>;
+  }>;
 
   constructor(
-    private readonly dashboardApi: DashboardApiService,
+    private readonly fb: FormBuilder,
+    private readonly staffUserApi: StaffUserApiService,
+    private readonly route: ActivatedRoute,
     private readonly router: Router
-  ) {}
+  ) {
 
-  ngOnInit(): void {
-    this.loadDashboard();
+    /*
+     * Initialize after FormBuilder has been injected.
+     */
+    this.form = this.fb.nonNullable.group({
+
+      name: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(2),
+          Validators.maxLength(100),
+
+          /*
+           * Allows:
+           * John
+           * John Doe
+           * John-Doe
+           * O'Connor
+           *
+           * Rejects:
+           * John@
+           * John#
+           * John$
+           * John123
+           */
+          Validators.pattern(
+            /^[A-Za-z]+(?:[ '-][A-Za-z]+)*$/
+          )
+        ]
+      ],
+
+      email: [
+        '',
+        [
+          Validators.required,
+          Validators.email,
+          Validators.maxLength(150)
+        ]
+      ],
+
+      address: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(5),
+          Validators.maxLength(250)
+        ]
+      ]
+    });
   }
 
-  loadDashboard(): void {
+  ngOnInit(): void {
+
+    this.userId =
+      this.route.snapshot.paramMap.get('id');
+
+    this.isEdit = !!this.userId;
+
+    if (this.userId) {
+
+      this.loadUser(
+        this.userId
+      );
+    }
+  }
+
+  loadUser(id: string): void {
+
     this.loading = true;
     this.error = '';
 
-    this.dashboardApi.getMetrics().subscribe({
-      next: (response) => {
-        this.metrics = response;
+    this.staffUserApi.getById(id).subscribe({
+
+      next: (user) => {
+
+        this.form.patchValue({
+
+          name:
+            user.name,
+
+          email:
+            user.email,
+
+          address:
+            user.address
+        });
+
+        this.previewUrl =
+          user.profilePictureUrl ?? null;
+
         this.loading = false;
       },
-      error: () => {
-        this.error = 'Unable to load dashboard data.';
+
+      error: (error: unknown) => {
+
+        console.error(
+          'Unable to load staff user.',
+          error
+        );
+
+        this.error =
+          'Unable to load staff user.';
+
         this.loading = false;
       }
     });
   }
 
-  // Staff User Management
-  addStaffUser(): void {
-    this.router.navigate(['/staff/manage-users/new']);
+  onFileSelected(event: Event): void {
+
+    const input =
+      event.target as HTMLInputElement;
+
+    if (
+      !input.files ||
+      input.files.length === 0
+    ) {
+      return;
+    }
+
+    const file =
+      input.files[0];
+
+    /*
+     * Allowed profile-picture formats.
+     */
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp'
+    ];
+
+    if (
+      !allowedTypes.includes(file.type)
+    ) {
+
+      this.error =
+        'Only JPG, PNG or WEBP images are allowed.';
+
+      input.value = '';
+
+      return;
+    }
+
+    /*
+     * Maximum file size = 5 MB.
+     */
+    const maxSize =
+      5 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+
+      this.error =
+        'Profile picture must be 5 MB or smaller.';
+
+      input.value = '';
+
+      return;
+    }
+
+    this.error = '';
+
+    this.selectedFile = file;
+
+    /*
+     * Create preview.
+     */
+    const reader =
+      new FileReader();
+
+    reader.onload = () => {
+
+      this.previewUrl =
+        reader.result as string;
+    };
+
+    reader.readAsDataURL(file);
   }
 
-  manageStaffUsers(): void {
-    this.router.navigate(['/staff/manage-users']);
+  removeSelectedPicture(): void {
+
+    this.selectedFile = null;
+    this.previewUrl = null;
   }
 
-  // Policy Management
-  addPolicy(): void {
-    this.router.navigate(['/staff/policies/new']);
+  save(): void {
+
+    this.error = '';
+    this.success = '';
+
+    if (this.form.invalid) {
+
+      this.form.markAllAsTouched();
+
+      return;
+    }
+
+    this.saving = true;
+
+    const request = {
+
+      name:
+        this.form.controls.name.value.trim(),
+
+      email:
+        this.form.controls.email.value.trim(),
+
+      address:
+        this.form.controls.address.value.trim()
+    };
+
+    /*
+     * EDIT STAFF USER
+     */
+    if (
+      this.isEdit &&
+      this.userId
+    ) {
+
+      this.staffUserApi
+        .update(
+          this.userId,
+          request
+        )
+        .subscribe({
+
+          next: () => {
+
+            this.saving = false;
+
+            this.success =
+              'Staff user updated successfully.';
+
+            setTimeout(() => {
+
+              this.router.navigate([
+                '/staff/manage-users'
+              ]);
+
+            }, 700);
+          },
+
+          error: (error: unknown) => {
+
+            this.saving = false;
+
+            this.error =
+              this.getErrorMessage(
+                error,
+                'Unable to update staff user.'
+              );
+          }
+        });
+
+      return;
+    }
+
+    /*
+     * CREATE STAFF USER
+     */
+    this.staffUserApi
+      .create(request)
+      .subscribe({
+
+        next: () => {
+
+          this.saving = false;
+
+          this.success =
+            'Staff user created successfully.';
+
+          setTimeout(() => {
+
+            this.router.navigate([
+              '/staff/manage-users'
+            ]);
+
+          }, 700);
+        },
+
+        error: (error: unknown) => {
+
+          this.saving = false;
+
+          this.error =
+            this.getErrorMessage(
+              error,
+              'Unable to create staff user.'
+            );
+        }
+      });
   }
 
-  managePolicies(): void {
-    this.router.navigate(['/staff/policies']);
+  cancel(): void {
+
+    this.router.navigate([
+      '/staff/manage-users'
+    ]);
   }
 
-  // Policy Application Approval/Rejection
-  approvePolicies(): void {
-    this.router.navigate(['/staff/approve-policies']);
+  get nameInvalid(): boolean {
+
+    const control =
+      this.form.controls.name;
+
+    return (
+      control.invalid &&
+      (
+        control.dirty ||
+        control.touched
+      )
+    );
+  }
+
+  get emailInvalid(): boolean {
+
+    const control =
+      this.form.controls.email;
+
+    return (
+      control.invalid &&
+      (
+        control.dirty ||
+        control.touched
+      )
+    );
+  }
+
+  get addressInvalid(): boolean {
+
+    const control =
+      this.form.controls.address;
+
+    return (
+      control.invalid &&
+      (
+        control.dirty ||
+        control.touched
+      )
+    );
+  }
+
+  private getErrorMessage(
+    error: unknown,
+    defaultMessage: string
+  ): string {
+
+    if (
+      error !== null &&
+      typeof error === 'object' &&
+      'error' in error
+    ) {
+
+      const response =
+        error as {
+          error?: {
+            message?: string;
+          };
+        };
+
+      return (
+        response.error?.message ??
+        defaultMessage
+      );
+    }
+
+    return defaultMessage;
   }
 }
-
-
-
-
-
-
-
-
 <div class="page">
 
-  <div class="page-header">
-    <div>
-      <h2>Staff Dashboard</h2>
-      <p>Manage staff users, policies and policy applications.</p>
+  <div class="form-card">
+
+    <h2>
+      {{ isEdit ? 'Edit Staff User' : 'Add Staff User' }}
+    </h2>
+
+    <p class="subtitle">
+      {{ isEdit
+        ? 'Update staff account details'
+        : 'Create a new staff account' }}
+    </p>
+
+    <div *ngIf="loading">
+      Loading...
     </div>
+
+    <form
+      *ngIf="!loading"
+      [formGroup]="form"
+      (ngSubmit)="save()">
+
+      <div class="field">
+
+        <label>
+          Name <span>*</span>
+        </label>
+
+        <input
+          type="text"
+          formControlName="name"
+          maxlength="100"
+          placeholder="Enter name">
+
+        <small *ngIf="nameInvalid">
+          <span *ngIf="form.controls.name.errors?.['required']">
+            Name is required.
+          </span>
+
+          <span *ngIf="form.controls.name.errors?.['pattern']">
+            Name can contain letters, spaces, apostrophes and hyphens only.
+          </span>
+
+          <span *ngIf="form.controls.name.errors?.['minlength']">
+            Name must contain at least 2 characters.
+          </span>
+        </small>
+
+      </div>
+
+      <div class="field">
+
+        <label>
+          Email <span>*</span>
+        </label>
+
+        <input
+          type="email"
+          formControlName="email"
+          maxlength="150"
+          placeholder="Enter email">
+
+        <small *ngIf="emailInvalid">
+          Please enter a valid email address.
+        </small>
+
+      </div>
+
+      <div class="field">
+
+        <label>
+          Address <span>*</span>
+        </label>
+
+        <textarea
+          rows="4"
+          formControlName="address"
+          maxlength="250"
+          placeholder="Enter address">
+        </textarea>
+
+        <small *ngIf="addressInvalid">
+          Address is required and must contain valid text.
+        </small>
+
+      </div>
+
+      <div class="field">
+
+        <label>Profile Picture</label>
+
+        <input
+          type="file"
+          accept=".jpg,.jpeg,.png,.webp"
+          (change)="onFileSelected($event)">
+
+        <div
+          class="preview"
+          *ngIf="previewUrl">
+
+          <img
+            [src]="previewUrl"
+            alt="Profile preview">
+
+          <button
+            type="button"
+            class="remove"
+            (click)="removeSelectedPicture()">
+            Remove
+          </button>
+
+        </div>
+
+        <small>
+          JPG, PNG or WEBP. Maximum size: 5 MB.
+        </small>
+
+      </div>
+
+      <div
+        class="error"
+        *ngIf="error">
+        {{ error }}
+      </div>
+
+      <div
+        class="success"
+        *ngIf="success">
+        {{ success }}
+      </div>
+
+      <div class="actions">
+
+        <button
+          type="button"
+          class="secondary"
+          (click)="cancel()">
+          Cancel
+        </button>
+
+        <button
+          type="submit"
+          class="primary"
+          [disabled]="saving">
+
+          {{ saving
+            ? 'Saving...'
+            : (isEdit ? 'Update User' : 'Add User') }}
+
+        </button>
+
+      </div>
+
+    </form>
+
   </div>
-
-  <!-- Loading -->
-  <div class="loading" *ngIf="loading">
-    Loading dashboard...
-  </div>
-
-  <!-- Error -->
-  <div class="error" *ngIf="error && !loading">
-    {{ error }}
-  </div>
-
-  <ng-container *ngIf="!loading">
-
-    <!-- Dashboard Statistics -->
-    <section class="stats-section">
-
-      <div class="stat-card">
-        <span class="stat-label">Customers</span>
-        <strong>{{ metrics.customers }}</strong>
-      </div>
-
-      <div class="stat-card">
-        <span class="stat-label">Staff Users</span>
-        <strong>{{ metrics.staff }}</strong>
-      </div>
-
-      <div class="stat-card">
-        <span class="stat-label">Policies</span>
-        <strong>{{ metrics.policies }}</strong>
-      </div>
-
-      <div class="stat-card">
-        <span class="stat-label">Active Policies</span>
-        <strong>{{ metrics.activePolicies }}</strong>
-      </div>
-
-      <div class="stat-card">
-        <span class="stat-label">Applications</span>
-        <strong>{{ metrics.applications }}</strong>
-      </div>
-
-      <div class="stat-card">
-        <span class="stat-label">Claims</span>
-        <strong>{{ metrics.claims }}</strong>
-      </div>
-
-      <div class="stat-card">
-        <span class="stat-label">Payments</span>
-        <strong>{{ metrics.payments }}</strong>
-      </div>
-
-    </section>
-
-
-    <!-- Quick Actions -->
-    <section class="actions-section">
-
-      <div class="section-header">
-        <h3>Quick Actions</h3>
-        <p>Staff and policy management</p>
-      </div>
-
-      <div class="actions-grid">
-
-        <!-- Add Staff -->
-        <button
-          type="button"
-          class="action-card"
-          (click)="addStaffUser()">
-
-          <div class="action-icon">+</div>
-
-          <div class="action-content">
-            <strong>Add Staff User</strong>
-            <span>Create a new staff account</span>
-          </div>
-
-        </button>
-
-
-        <!-- Manage Staff -->
-        <button
-          type="button"
-          class="action-card"
-          (click)="manageStaffUsers()">
-
-          <div class="action-icon">👥</div>
-
-          <div class="action-content">
-            <strong>Manage Staff Users</strong>
-            <span>View, edit or delete staff users</span>
-          </div>
-
-        </button>
-
-
-        <!-- Add Policy -->
-        <button
-          type="button"
-          class="action-card"
-          (click)="addPolicy()">
-
-          <div class="action-icon">+</div>
-
-          <div class="action-content">
-            <strong>Add Policy</strong>
-            <span>Create a new insurance policy</span>
-          </div>
-
-        </button>
-
-
-        <!-- Manage Policies -->
-        <button
-          type="button"
-          class="action-card"
-          (click)="managePolicies()">
-
-          <div class="action-icon">📋</div>
-
-          <div class="action-content">
-            <strong>Manage Policies</strong>
-            <span>View, edit or delete policies</span>
-          </div>
-
-        </button>
-
-
-        <!-- Approve / Reject Applications -->
-        <button
-          type="button"
-          class="action-card"
-          (click)="approvePolicies()">
-
-          <div class="action-icon">✓</div>
-
-          <div class="action-content">
-            <strong>Approve Policies</strong>
-            <span>Review applications and approve or reject by ID</span>
-          </div>
-
-        </button>
-
-      </div>
-
-    </section>
-
-  </ng-container>
 
 </div>
-
-
-
-
-
-
-
-.page {
-  padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-.page-header h2 {
-  margin: 0;
-  font-size: 28px;
-  font-weight: 600;
-}
-
-.page-header p {
-  margin: 6px 0 0;
-  color: #666;
-}
-
-.loading {
-  padding: 30px;
-  text-align: center;
-  color: #666;
-}
-
-.error {
-  padding: 12px 16px;
-  margin-bottom: 20px;
-  border: 1px solid #f0b7b7;
-  border-radius: 6px;
-  background: #fff4f4;
-  color: #b42318;
-}
-
-
-/* Statistics */
-
-.stats-section {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 32px;
-}
-
-.stat-card {
-  padding: 20px;
-  background: #ffffff;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-}
-
-.stat-label {
-  display: block;
-  margin-bottom: 8px;
-  color: #666;
-  font-size: 14px;
-}
-
-.stat-card strong {
-  font-size: 28px;
-  font-weight: 600;
-}
-
-
-/* Quick Actions */
-
-.actions-section {
-  margin-top: 10px;
-}
-
-.section-header {
-  margin-bottom: 16px;
-}
-
-.section-header h3 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.section-header p {
-  margin: 5px 0 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.actions-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-}
-
-.action-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
-  padding: 18px;
-  text-align: left;
-  background: #ffffff;
-  border: 1px solid #e2e2e2;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.action-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
-}
-
-.action-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  flex-shrink: 0;
-  border-radius: 6px;
-  background: #f3f4f6;
-  font-size: 20px;
-}
-
-.action-content {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.action-content strong {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.action-content span {
-  color: #666;
-  font-size: 13px;
-}
-
-
-/* Responsive */
-
-@media (max-width: 900px) {
-  .stats-section {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .page {
-    padding: 16px;
-  }
-
-  .stats-section,
-  .actions-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-
-
-
-
-
-
-import { Routes } from '@angular/router';
-import { staffGuard } from '../core/rbac/staff.guard';
-
-export const routes: Routes = [
-
-  // Default route
-  {
-    path: '',
-    redirectTo: 'auth/staff-login',
-    pathMatch: 'full'
-  },
-
-  // Staff Login
-  {
-    path: 'auth/staff-login',
-    loadComponent: () =>
-      import('../pages/auth/staff-login.component')
-        .then(m => m.StaffLoginComponent)
-  },
-
-  // Staff Area
-  {
-    path: 'staff',
-    canActivate: [staffGuard],
-    children: [
-
-      // Dashboard
-      {
-        path: 'dashboard',
-        loadComponent: () =>
-          import('../pages/staff/dashboard/dashboard.component')
-            .then(m => m.DashboardComponent)
-      },
-
-      // -------------------------
-      // Staff User Management
-      // -------------------------
-
-      {
-        path: 'manage-users',
-        loadComponent: () =>
-          import('../pages/staff/manage-users-list/manage-users-list.component')
-            .then(m => m.ManageUsersListComponent)
-      },
-
-      {
-        path: 'manage-users/new',
-        loadComponent: () =>
-          import('../pages/staff/manage-users-new/manage-users-new.component')
-            .then(m => m.ManageUsersNewComponent)
-      },
-
-      {
-        path: 'manage-users/:id/edit',
-        loadComponent: () =>
-          import('../pages/staff/manage-users-new/manage-users-new.component')
-            .then(m => m.ManageUsersNewComponent)
-      },
-
-      // -------------------------
-      // Policy Management
-      // -------------------------
-
-      {
-        path: 'policies',
-        loadComponent: () =>
-          import('../pages/staff/policies-list/policies-list.component')
-            .then(m => m.PoliciesListComponent)
-      },
-
-      {
-        path: 'policies/new',
-        loadComponent: () =>
-          import('../pages/staff/policies-new/policies-new.component')
-            .then(m => m.PoliciesNewComponent)
-      },
-
-      {
-        path: 'policies/:id/edit',
-        loadComponent: () =>
-          import('../pages/staff/policies-new/policies-new.component')
-            .then(m => m.PoliciesNewComponent)
-      },
-
-      // -------------------------
-      // Policy Application Approval
-      // -------------------------
-
-      {
-        path: 'approve-policies',
-        loadComponent: () =>
-          import('../pages/staff/approve-policies-list/approve-policies-list.component')
-            .then(m => m.ApprovePoliciesListComponent)
-      },
-
-      {
-        path: 'approve-policies/:id',
-        loadComponent: () =>
-          import('../pages/staff/approve-policies-review/approve-policies-review.component')
-            .then(m => m.ApprovePoliciesReviewComponent)
-      }
-    ]
-  },
-
-  // Unknown route
-  {
-    path: '**',
-    redirectTo: 'auth/staff-login'
-  }
-];
-
