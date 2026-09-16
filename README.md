@@ -42,26 +42,18 @@ export class DashboardComponent implements OnInit {
     this.error = '';
 
     this.dashboardApi.getMetrics().subscribe({
-      next: response => {
+      next: (response) => {
         this.metrics = response;
         this.loading = false;
       },
-      error: error => {
-        console.error('Unable to load dashboard data.', error);
+      error: () => {
         this.error = 'Unable to load dashboard data.';
         this.loading = false;
       }
     });
   }
 
-  addPolicy(): void {
-    this.router.navigate(['/staff/policies/new']);
-  }
-
-  managePolicies(): void {
-    this.router.navigate(['/staff/policies']);
-  }
-
+  // Staff User Management
   addStaffUser(): void {
     this.router.navigate(['/staff/manage-users/new']);
   }
@@ -70,22 +62,21 @@ export class DashboardComponent implements OnInit {
     this.router.navigate(['/staff/manage-users']);
   }
 
-  reviewApplications(): void {
-    this.router.navigate(['/staff/approve-policies']);
+  // Policy Management
+  addPolicy(): void {
+    this.router.navigate(['/staff/policies/new']);
   }
 
-  viewApplicationDocuments(): void {
-    /*
-     * Application review is where the staff member can inspect
-     * the application and its supporting documents.
-     */
-    this.router.navigate(['/staff/approve-policies']);
+  managePolicies(): void {
+    this.router.navigate(['/staff/policies']);
   }
 
-  manageCategories(): void {
-    this.router.navigate(['/staff/categories']);
+  // Policy Application Approval/Rejection
+  approvePolicies(): void {
+    this.router.navigate(['/staff/approve-policies']);
   }
 }
+
 
 
 
@@ -95,355 +86,160 @@ export class DashboardComponent implements OnInit {
 
 <div class="page">
 
-  <!-- ========================= -->
-  <!-- DASHBOARD HEADER -->
-  <!-- ========================= -->
-
   <div class="page-header">
-
     <div>
-      <h2>Dashboard</h2>
-      <p>Overview of insurance platform activity</p>
+      <h2>Staff Dashboard</h2>
+      <p>Manage staff users, policies and policy applications.</p>
     </div>
-
   </div>
 
-
-  <!-- ========================= -->
-  <!-- LOADING -->
-  <!-- ========================= -->
-
-  <div
-    *ngIf="loading"
-    class="message">
-
+  <!-- Loading -->
+  <div class="loading" *ngIf="loading">
     Loading dashboard...
-
   </div>
 
-
-  <!-- ========================= -->
-  <!-- ERROR -->
-  <!-- ========================= -->
-
-  <div
-    *ngIf="error"
-    class="error">
-
+  <!-- Error -->
+  <div class="error" *ngIf="error && !loading">
     {{ error }}
-
   </div>
 
+  <ng-container *ngIf="!loading">
 
-  <!-- ========================= -->
-  <!-- STATISTICS -->
-  <!-- ========================= -->
+    <!-- Dashboard Statistics -->
+    <section class="stats-section">
 
-  <div
-    class="stats-grid"
-    *ngIf="!loading">
+      <div class="stat-card">
+        <span class="stat-label">Customers</span>
+        <strong>{{ metrics.customers }}</strong>
+      </div>
 
-    <div class="stat-card">
+      <div class="stat-card">
+        <span class="stat-label">Staff Users</span>
+        <strong>{{ metrics.staff }}</strong>
+      </div>
 
-      <span>Staff Users</span>
+      <div class="stat-card">
+        <span class="stat-label">Policies</span>
+        <strong>{{ metrics.policies }}</strong>
+      </div>
 
-      <strong>
-        {{ metrics.staff }}
-      </strong>
+      <div class="stat-card">
+        <span class="stat-label">Active Policies</span>
+        <strong>{{ metrics.activePolicies }}</strong>
+      </div>
 
-    </div>
+      <div class="stat-card">
+        <span class="stat-label">Applications</span>
+        <strong>{{ metrics.applications }}</strong>
+      </div>
 
+      <div class="stat-card">
+        <span class="stat-label">Claims</span>
+        <strong>{{ metrics.claims }}</strong>
+      </div>
 
-    <div class="stat-card">
+      <div class="stat-card">
+        <span class="stat-label">Payments</span>
+        <strong>{{ metrics.payments }}</strong>
+      </div>
 
-      <span>Customers</span>
-
-      <strong>
-        {{ metrics.customers }}
-      </strong>
-
-    </div>
-
-
-    <div class="stat-card">
-
-      <span>Categories</span>
-
-      <strong>
-        {{ metrics.categories }}
-      </strong>
-
-    </div>
-
-
-    <div class="stat-card">
-
-      <span>Policies</span>
-
-      <strong>
-        {{ metrics.policies }}
-      </strong>
-
-    </div>
+    </section>
 
 
-    <div class="stat-card">
+    <!-- Quick Actions -->
+    <section class="actions-section">
 
-      <span>Active Policies</span>
-
-      <strong>
-        {{ metrics.activePolicies }}
-      </strong>
-
-    </div>
-
-
-    <div class="stat-card">
-
-      <span>Applications</span>
-
-      <strong>
-        {{ metrics.applications }}
-      </strong>
-
-    </div>
-
-
-    <div class="stat-card">
-
-      <span>Claims</span>
-
-      <strong>
-        {{ metrics.claims }}
-      </strong>
-
-    </div>
-
-
-    <div class="stat-card">
-
-      <span>Payments</span>
-
-      <strong>
-        {{ metrics.payments }}
-      </strong>
-
-    </div>
-
-  </div>
-
-
-  <!-- ========================= -->
-  <!-- QUICK ACTIONS -->
-  <!-- ========================= -->
-
-  <section
-    class="actions-section"
-    *ngIf="!loading">
-
-    <div class="section-header">
-
-      <div>
-
+      <div class="section-header">
         <h3>Quick Actions</h3>
+        <p>Staff and policy management</p>
+      </div>
 
-        <p>
-          Manage staff users, policies and applications
-        </p>
+      <div class="actions-grid">
+
+        <!-- Add Staff -->
+        <button
+          type="button"
+          class="action-card"
+          (click)="addStaffUser()">
+
+          <div class="action-icon">+</div>
+
+          <div class="action-content">
+            <strong>Add Staff User</strong>
+            <span>Create a new staff account</span>
+          </div>
+
+        </button>
+
+
+        <!-- Manage Staff -->
+        <button
+          type="button"
+          class="action-card"
+          (click)="manageStaffUsers()">
+
+          <div class="action-icon">👥</div>
+
+          <div class="action-content">
+            <strong>Manage Staff Users</strong>
+            <span>View, edit or delete staff users</span>
+          </div>
+
+        </button>
+
+
+        <!-- Add Policy -->
+        <button
+          type="button"
+          class="action-card"
+          (click)="addPolicy()">
+
+          <div class="action-icon">+</div>
+
+          <div class="action-content">
+            <strong>Add Policy</strong>
+            <span>Create a new insurance policy</span>
+          </div>
+
+        </button>
+
+
+        <!-- Manage Policies -->
+        <button
+          type="button"
+          class="action-card"
+          (click)="managePolicies()">
+
+          <div class="action-icon">📋</div>
+
+          <div class="action-content">
+            <strong>Manage Policies</strong>
+            <span>View, edit or delete policies</span>
+          </div>
+
+        </button>
+
+
+        <!-- Approve / Reject Applications -->
+        <button
+          type="button"
+          class="action-card"
+          (click)="approvePolicies()">
+
+          <div class="action-icon">✓</div>
+
+          <div class="action-content">
+            <strong>Approve Policies</strong>
+            <span>Review applications and approve or reject by ID</span>
+          </div>
+
+        </button>
 
       </div>
 
-    </div>
+    </section>
 
-
-    <div class="actions-grid">
-
-
-      <!-- ADD POLICY -->
-
-      <button
-        type="button"
-        class="action-card"
-        (click)="addPolicy()">
-
-        <div class="action-icon">
-          +
-        </div>
-
-        <div class="action-content">
-
-          <strong>
-            Add Policy
-          </strong>
-
-          <span>
-            Create a new insurance policy
-          </span>
-
-        </div>
-
-      </button>
-
-
-      <!-- MANAGE POLICIES -->
-
-      <button
-        type="button"
-        class="action-card"
-        (click)="managePolicies()">
-
-        <div class="action-icon">
-          ≡
-        </div>
-
-        <div class="action-content">
-
-          <strong>
-            Manage Policies
-          </strong>
-
-          <span>
-            View, edit or delete policies
-          </span>
-
-        </div>
-
-      </button>
-
-
-      <!-- ADD STAFF USER -->
-
-      <button
-        type="button"
-        class="action-card"
-        (click)="addStaffUser()">
-
-        <div class="action-icon">
-          +
-        </div>
-
-        <div class="action-content">
-
-          <strong>
-            Add Staff User
-          </strong>
-
-          <span>
-            Create a new staff account
-          </span>
-
-        </div>
-
-      </button>
-
-
-      <!-- MANAGE STAFF USERS -->
-
-      <button
-        type="button"
-        class="action-card"
-        (click)="manageStaffUsers()">
-
-        <div class="action-icon">
-          ≡
-        </div>
-
-        <div class="action-content">
-
-          <strong>
-            Manage Staff Users
-          </strong>
-
-          <span>
-            View, edit or delete staff users
-          </span>
-
-        </div>
-
-      </button>
-
-
-      <!-- REVIEW APPLICATIONS -->
-
-      <button
-        type="button"
-        class="action-card"
-        (click)="reviewApplications()">
-
-        <div class="action-icon">
-          ✓
-        </div>
-
-        <div class="action-content">
-
-          <strong>
-            Review Applications
-          </strong>
-
-          <span>
-            Approve or reject pending applications
-          </span>
-
-        </div>
-
-      </button>
-
-
-      <!-- APPLICATION DOCUMENTS -->
-
-      <button
-        type="button"
-        class="action-card"
-        (click)="viewApplicationDocuments()">
-
-        <div class="action-icon">
-          📎
-        </div>
-
-        <div class="action-content">
-
-          <strong>
-            Application Documents
-          </strong>
-
-          <span>
-            Review supporting documents
-          </span>
-
-        </div>
-
-      </button>
-
-
-      <!-- CATEGORIES -->
-
-      <button
-        type="button"
-        class="action-card"
-        (click)="manageCategories()">
-
-        <div class="action-icon">
-          #
-        </div>
-
-        <div class="action-content">
-
-          <strong>
-            Manage Categories
-          </strong>
-
-          <span>
-            View and manage policy categories
-          </span>
-
-        </div>
-
-      </button>
-
-
-    </div>
-
-  </section>
+  </ng-container>
 
 </div>
 
@@ -453,137 +249,165 @@ export class DashboardComponent implements OnInit {
 
 
 
+.page {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
 
-/* ========================= */
-/* QUICK ACTIONS */
-/* ========================= */
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-header h2 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.page-header p {
+  margin: 6px 0 0;
+  color: #666;
+}
+
+.loading {
+  padding: 30px;
+  text-align: center;
+  color: #666;
+}
+
+.error {
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  border: 1px solid #f0b7b7;
+  border-radius: 6px;
+  background: #fff4f4;
+  color: #b42318;
+}
+
+
+/* Statistics */
+
+.stats-section {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.stat-card {
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+}
+
+.stat-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #666;
+  font-size: 14px;
+}
+
+.stat-card strong {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+
+/* Quick Actions */
 
 .actions-section {
-  margin-top: 32px;
+  margin-top: 10px;
 }
 
 .section-header {
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .section-header h3 {
   margin: 0;
   font-size: 20px;
+  font-weight: 600;
 }
 
 .section-header p {
-  margin: 6px 0 0;
-  color: #777;
+  margin: 5px 0 0;
+  color: #666;
+  font-size: 14px;
 }
-
-
-/* ========================= */
-/* ACTION GRID */
-/* ========================= */
 
 .actions-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
 }
-
-
-/* ========================= */
-/* ACTION CARD */
-/* ========================= */
 
 .action-card {
   display: flex;
   align-items: center;
-  gap: 15px;
-
+  gap: 16px;
   width: 100%;
-  min-height: 95px;
-
   padding: 18px;
-
-  background: white;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-
-  cursor: pointer;
-
   text-align: left;
-
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    border-color 0.15s ease;
+  background: #ffffff;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .action-card:hover {
-  transform: translateY(-2px);
-  border-color: #aaa;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
 }
 
-
-/* ========================= */
-/* ICON */
-/* ========================= */
-
 .action-icon {
-  width: 44px;
-  height: 44px;
-
-  flex-shrink: 0;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
-  border-radius: 8px;
-
-  background: #f1f4f6;
-
-  font-size: 24px;
-  font-weight: 600;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: #f3f4f6;
+  font-size: 20px;
 }
-
-
-/* ========================= */
-/* CONTENT */
-/* ========================= */
 
 .action-content {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 
 .action-content strong {
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .action-content span {
-  color: #777;
+  color: #666;
   font-size: 13px;
 }
 
 
-/* ========================= */
-/* RESPONSIVE */
-/* ========================= */
+/* Responsive */
 
-@media (max-width: 1000px) {
-
-  .actions-grid {
+@media (max-width: 900px) {
+  .stats-section {
     grid-template-columns: repeat(2, 1fr);
   }
-
 }
 
-@media (max-width: 650px) {
+@media (max-width: 600px) {
+  .page {
+    padding: 16px;
+  }
 
+  .stats-section,
   .actions-grid {
     grid-template-columns: 1fr;
   }
-
 }
 
 
@@ -592,404 +416,114 @@ export class DashboardComponent implements OnInit {
 
 
 
-
-<div class="page">
-
-  <!-- Dashboard Header -->
-  <div class="page-header">
-    <div>
-      <h2>Dashboard</h2>
-      <p>Overview of insurance platform activity</p>
-    </div>
-  </div>
-
-
-  <!-- Loading -->
-  <div
-    *ngIf="loading"
-    class="message">
-
-    Loading dashboard...
-
-  </div>
-
-
-  <!-- Error -->
-  <div
-    *ngIf="error"
-    class="error">
-
-    {{ error }}
-
-  </div>
-
-
-  <!-- Dashboard Statistics -->
-  <div
-    class="stats-grid"
-    *ngIf="!loading">
-
-    <div class="stat-card">
-      <span>Staff Users</span>
-      <strong>{{ metrics.staff }}</strong>
-    </div>
-
-    <div class="stat-card">
-      <span>Customers</span>
-      <strong>{{ metrics.customers }}</strong>
-    </div>
-
-    <div class="stat-card">
-      <span>Categories</span>
-      <strong>{{ metrics.categories }}</strong>
-    </div>
-
-    <div class="stat-card">
-      <span>Policies</span>
-      <strong>{{ metrics.policies }}</strong>
-    </div>
-
-    <div class="stat-card">
-      <span>Active Policies</span>
-      <strong>{{ metrics.activePolicies }}</strong>
-    </div>
-
-    <div class="stat-card">
-      <span>Applications</span>
-      <strong>{{ metrics.applications }}</strong>
-    </div>
-
-    <div class="stat-card">
-      <span>Claims</span>
-      <strong>{{ metrics.claims }}</strong>
-    </div>
-
-    <div class="stat-card">
-      <span>Payments</span>
-      <strong>{{ metrics.payments }}</strong>
-    </div>
-
-  </div>
-
-
-  <!-- Quick Actions -->
-  <section
-    class="actions-section"
-    *ngIf="!loading">
-
-    <div class="section-header">
-
-      <h3>Quick Actions</h3>
-
-      <p>
-        Staff and policy management
-      </p>
-
-    </div>
-
-
-    <div class="actions-grid">
-
-
-      <!-- Add Staff User -->
-      <button
-        type="button"
-        class="action-card"
-        (click)="addStaffUser()">
-
-        <div class="action-icon">
-          +
-        </div>
-
-        <div class="action-content">
-
-          <strong>
-            Add Staff User
-          </strong>
-
-          <span>
-            Create a new staff account
-          </span>
-
-        </div>
-
-      </button>
-
-
-      <!-- Manage Staff Users -->
-      <button
-        type="button"
-        class="action-card"
-        (click)="manageStaffUsers()">
-
-        <div class="action-icon">
-          👥
-        </div>
-
-        <div class="action-content">
-
-          <strong>
-            Manage Staff Users
-          </strong>
-
-          <span>
-            View, edit or delete staff users
-          </span>
-
-        </div>
-
-      </button>
-
-
-      <!-- Add Policy -->
-      <button
-        type="button"
-        class="action-card"
-        (click)="addPolicy()">
-
-        <div class="action-icon">
-          +
-        </div>
-
-        <div class="action-content">
-
-          <strong>
-            Add Policy
-          </strong>
-
-          <span>
-            Create a new insurance policy
-          </span>
-
-        </div>
-
-      </button>
-
-
-      <!-- Manage Policies -->
-      <button
-        type="button"
-        class="action-card"
-        (click)="managePolicies()">
-
-        <div class="action-icon">
-          📋
-        </div>
-
-        <div class="action-content">
-
-          <strong>
-            Manage Policies
-          </strong>
-
-          <span>
-            View, edit or delete policies
-          </span>
-
-        </div>
-
-      </button>
-
-
-      <!-- Review Applications -->
-      <button
-        type="button"
-        class="action-card"
-        (click)="reviewApplications()">
-
-        <div class="action-icon">
-          ✓
-        </div>
-
-        <div class="action-content">
-
-          <strong>
-            Review Applications
-          </strong>
-
-          <span>
-            Approve or reject policy applications
-          </span>
-
-        </div>
-
-      </button>
-
-
-      <!-- Application Documents -->
-      <button
-        type="button"
-        class="action-card"
-        (click)="viewApplicationDocuments()">
-
-        <div class="action-icon">
-          📎
-        </div>
-
-        <div class="action-content">
-
-          <strong>
-            Application Documents
-          </strong>
-
-          <span>
-            View supporting documents
-          </span>
-
-        </div>
-
-      </button>
-
-
-    </div>
-
-  </section>
-
-</div>
-
-
-
-
-
-
-
-
-
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
-
-import { DashboardApiService } from '../../../services/api/dashboard-api.service';
-import { DashboardMetrics } from '../../../types/br04-05.types';
-
-@Component({
-  selector: 'app-dashboard',
-  standalone: true,
-  imports: [CommonModule],
-  templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.css']
-})
-export class DashboardComponent implements OnInit {
-
-  metrics: DashboardMetrics = {
-    customers: 0,
-    staff: 0,
-    categories: 0,
-    policies: 0,
-    activePolicies: 0,
-    applications: 0,
-    claims: 0,
-    payments: 0
-  };
-
-  loading = true;
-  error = '';
-
-  constructor(
-    private readonly dashboardApi: DashboardApiService,
-    private readonly router: Router
-  ) {}
-
-  ngOnInit(): void {
-    this.loadDashboard();
-  }
-
-  loadDashboard(): void {
-
-    this.loading = true;
-    this.error = '';
-
-    this.dashboardApi.getMetrics().subscribe({
-
-      next: response => {
-
-        this.metrics = response;
-        this.loading = false;
-
+import { Routes } from '@angular/router';
+import { staffGuard } from '../core/rbac/staff.guard';
+
+export const routes: Routes = [
+
+  // Default route
+  {
+    path: '',
+    redirectTo: 'auth/staff-login',
+    pathMatch: 'full'
+  },
+
+  // Staff Login
+  {
+    path: 'auth/staff-login',
+    loadComponent: () =>
+      import('../pages/auth/staff-login.component')
+        .then(m => m.StaffLoginComponent)
+  },
+
+  // Staff Area
+  {
+    path: 'staff',
+    canActivate: [staffGuard],
+    children: [
+
+      // Dashboard
+      {
+        path: 'dashboard',
+        loadComponent: () =>
+          import('../pages/staff/dashboard/dashboard.component')
+            .then(m => m.DashboardComponent)
       },
 
-      error: error => {
+      // -------------------------
+      // Staff User Management
+      // -------------------------
 
-        console.error(
-          'Unable to load dashboard data.',
-          error
-        );
+      {
+        path: 'manage-users',
+        loadComponent: () =>
+          import('../pages/staff/manage-users-list/manage-users-list.component')
+            .then(m => m.ManageUsersListComponent)
+      },
 
-        this.error =
-          'Unable to load dashboard data.';
+      {
+        path: 'manage-users/new',
+        loadComponent: () =>
+          import('../pages/staff/manage-users-new/manage-users-new.component')
+            .then(m => m.ManageUsersNewComponent)
+      },
 
-        this.loading = false;
+      {
+        path: 'manage-users/:id/edit',
+        loadComponent: () =>
+          import('../pages/staff/manage-users-new/manage-users-new.component')
+            .then(m => m.ManageUsersNewComponent)
+      },
+
+      // -------------------------
+      // Policy Management
+      // -------------------------
+
+      {
+        path: 'policies',
+        loadComponent: () =>
+          import('../pages/staff/policies-list/policies-list.component')
+            .then(m => m.PoliciesListComponent)
+      },
+
+      {
+        path: 'policies/new',
+        loadComponent: () =>
+          import('../pages/staff/policies-new/policies-new.component')
+            .then(m => m.PoliciesNewComponent)
+      },
+
+      {
+        path: 'policies/:id/edit',
+        loadComponent: () =>
+          import('../pages/staff/policies-new/policies-new.component')
+            .then(m => m.PoliciesNewComponent)
+      },
+
+      // -------------------------
+      // Policy Application Approval
+      // -------------------------
+
+      {
+        path: 'approve-policies',
+        loadComponent: () =>
+          import('../pages/staff/approve-policies-list/approve-policies-list.component')
+            .then(m => m.ApprovePoliciesListComponent)
+      },
+
+      {
+        path: 'approve-policies/:id',
+        loadComponent: () =>
+          import('../pages/staff/approve-policies-review/approve-policies-review.component')
+            .then(m => m.ApprovePoliciesReviewComponent)
       }
-    });
+    ]
+  },
+
+  // Unknown route
+  {
+    path: '**',
+    redirectTo: 'auth/staff-login'
   }
+];
 
-
-  // =========================
-  // BR04 - STAFF MANAGEMENT
-  // =========================
-
-  addStaffUser(): void {
-
-    this.router.navigate([
-      '/staff/manage-users/new'
-    ]);
-  }
-
-
-  manageStaffUsers(): void {
-
-    this.router.navigate([
-      '/staff/manage-users'
-    ]);
-  }
-
-
-  // =========================
-  // BR05 - POLICY MANAGEMENT
-  // =========================
-
-  addPolicy(): void {
-
-    this.router.navigate([
-      '/staff/policies/new'
-    ]);
-  }
-
-
-  managePolicies(): void {
-
-    this.router.navigate([
-      '/staff/policies'
-    ]);
-  }
-
-
-  // =========================
-  // BR05 - APPLICATION REVIEW
-  // =========================
-
-  reviewApplications(): void {
-
-    this.router.navigate([
-      '/staff/approve-policies'
-    ]);
-  }
-
-
-  // =========================
-  // BR05 - DOCUMENTS
-  // =========================
-
-  viewApplicationDocuments(): void {
-
-    /*
-     * Documents belong to a policy application.
-     * Therefore staff first goes to the application
-     * review/list page and selects an application
-     * to view its supporting documents.
-     */
-    this.router.navigate([
-      '/staff/approve-policies'
-    ]);
-  }
-}
