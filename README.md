@@ -9,25 +9,36 @@ export interface DashboardMetrics {
   payments: number;
 }
 
+
+/* =========================
+   STAFF USER
+   ========================= */
+
 export interface StaffUser {
   id: string;
-  fullname: string;
+  fullName: string;
   email: string;
   address: string;
   profilePictureUrl?: string | null;
 }
 
 export interface StaffCreateRequest {
-  fullname: string;
+  fullName: string;
+  email: string;
+  address: string;
+  password: string;
+}
+
+export interface StaffUpdateRequest {
+  fullName: string;
   email: string;
   address: string;
 }
 
-export interface StaffUpdateRequest {
-  fullname: string;
-  email: string;
-  address: string;
-}
+
+/* =========================
+   CATEGORY
+   ========================= */
 
 export interface Category {
   id: string;
@@ -99,4 +110,4 @@ export interface ApplicationDocument {
   s3Key: string;
   uploadedBy?: string;
   createdAt?: string;
-}     
+}
