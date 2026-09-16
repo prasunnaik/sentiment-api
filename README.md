@@ -2,6 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   FormBuilder,
+  FormControl,
+  FormGroup,
   ReactiveFormsModule,
   Validators
 } from '@angular/forms';
@@ -38,24 +40,28 @@ export class PoliciesNewComponent implements OnInit {
   success = '';
 
   /*
-   * The form is declared here but NOT initialized here.
-   *
-   * It is initialized inside ngOnInit() after FormBuilder
-   * has been injected by the constructor.
+   * Explicitly define the form controls.
+   * This allows TypeScript to recognise:
+   * policyName, categoryId, premium,
+   * coverageAmount and duration.
    */
-  form!: ReturnType<FormBuilder['nonNullable']['group']>;
+  form: FormGroup<{
+    policyName: FormControl<string>;
+    categoryId: FormControl<string>;
+    premium: FormControl<number>;
+    coverageAmount: FormControl<number>;
+    duration: FormControl<number>;
+  }>;
 
   constructor(
     private readonly fb: FormBuilder,
     private readonly policyApi: PolicyApiService,
     private readonly route: ActivatedRoute,
     private readonly router: Router
-  ) {}
-
-  ngOnInit(): void {
-
+  ) {
     /*
-     * Initialize the form after FormBuilder is available.
+     * FormBuilder is available here because it has already
+     * been injected by Angular.
      */
     this.form = this.fb.nonNullable.group({
 
@@ -67,14 +73,20 @@ export class PoliciesNewComponent implements OnInit {
           Validators.maxLength(100),
 
           /*
-           * Allows:
-           * Life Insurance
-           * Motor Insurance
-           * Health-Insurance
-           * Health's Insurance
+           * Allows letters/numbers with optional spaces,
+           * apostrophes or hyphens between words.
            *
-           * Rejects arbitrary special characters such as:
-           * @ # $ % & * etc.
+           * Examples allowed:
+           * Health Insurance
+           * Life-Insurance
+           * Motor Insurance 2
+           * Children's Insurance
+           *
+           * Examples rejected:
+           * Health@Insurance
+           * Life#Insurance
+           * Policy$
+           * Test%
            */
           Validators.pattern(
             /^[A-Za-z0-9]+(?:[ '-][A-Za-z0-9]+)*$/
@@ -112,23 +124,17 @@ export class PoliciesNewComponent implements OnInit {
         ]
       ]
     });
+  }
 
-    /*
-     * Check whether this is Add or Edit.
-     */
+  ngOnInit(): void {
+
     this.policyId =
       this.route.snapshot.paramMap.get('id');
 
     this.isEdit = !!this.policyId;
 
-    /*
-     * Load only active categories.
-     */
     this.loadCategories();
 
-    /*
-     * If an ID exists, load the existing policy.
-     */
     if (this.policyId) {
       this.loadPolicy(this.policyId);
     }
@@ -140,11 +146,10 @@ export class PoliciesNewComponent implements OnInit {
 
       next: (categories: Category[]) => {
 
-        this.categories =
-          categories.filter(
-            (category: Category) =>
-              category.status === 'ACTIVE'
-          );
+        this.categories = categories.filter(
+          (category: Category) =>
+            category.status === 'ACTIVE'
+        );
       },
 
       error: (error: unknown) => {
@@ -225,9 +230,6 @@ export class PoliciesNewComponent implements OnInit {
     this.error = '';
     this.success = '';
 
-    /*
-     * Validate the complete form.
-     */
     if (this.form.invalid) {
 
       this.form.markAllAsTouched();
@@ -237,9 +239,6 @@ export class PoliciesNewComponent implements OnInit {
 
     this.saving = true;
 
-    /*
-     * Prepare request for Spring Boot.
-     */
     const request = {
 
       policyName:
@@ -264,9 +263,6 @@ export class PoliciesNewComponent implements OnInit {
         )
     };
 
-    /*
-     * Add or Edit.
-     */
     const operation =
       this.isEdit && this.policyId
         ? this.policyApi.update(
@@ -288,9 +284,6 @@ export class PoliciesNewComponent implements OnInit {
             ? 'Policy updated successfully.'
             : 'Policy created successfully.';
 
-        /*
-         * Return to Manage Policies.
-         */
         setTimeout(() => {
 
           this.router.navigate([
@@ -304,32 +297,11 @@ export class PoliciesNewComponent implements OnInit {
 
         this.saving = false;
 
-        /*
-         * Don't use "error: error =>" because
-         * strict TypeScript reports implicit any.
-         */
-        if (
-          error !== null &&
-          typeof error === 'object' &&
-          'error' in error
-        ) {
-
-          const response =
-            error as {
-              error?: {
-                message?: string;
-              };
-            };
-
-          this.error =
-            response.error?.message ??
-            'Unable to save policy.';
-
-        } else {
-
-          this.error =
-            'Unable to save policy.';
-        }
+        this.error =
+          this.getErrorMessage(
+            error,
+            'Unable to save policy.'
+          );
       }
     });
   }
@@ -339,6 +311,33 @@ export class PoliciesNewComponent implements OnInit {
     this.router.navigate([
       '/staff/policies'
     ]);
+  }
+
+  private getErrorMessage(
+    error: unknown,
+    defaultMessage: string
+  ): string {
+
+    if (
+      error !== null &&
+      typeof error === 'object' &&
+      'error' in error
+    ) {
+
+      const response =
+        error as {
+          error?: {
+            message?: string;
+          };
+        };
+
+      return (
+        response.error?.message ??
+        defaultMessage
+      );
+    }
+
+    return defaultMessage;
   }
 }
 
@@ -352,6 +351,8 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   FormBuilder,
+  FormControl,
+  FormGroup,
   ReactiveFormsModule,
   Validators
 } from '@angular/forms';
@@ -389,24 +390,25 @@ export class ManageUsersNewComponent implements OnInit {
   previewUrl: string | null = null;
 
   /*
-   * Declare the form only.
-   *
-   * It is initialized inside ngOnInit() because
-   * FormBuilder is injected through the constructor.
+   * Explicit form type.
+   * This makes TypeScript recognise:
+   * name, email and address.
    */
-  form!: ReturnType<FormBuilder['nonNullable']['group']>;
+  form: FormGroup<{
+    name: FormControl<string>;
+    email: FormControl<string>;
+    address: FormControl<string>;
+  }>;
 
   constructor(
     private readonly fb: FormBuilder,
     private readonly staffUserApi: StaffUserApiService,
     private readonly route: ActivatedRoute,
     private readonly router: Router
-  ) {}
-
-  ngOnInit(): void {
+  ) {
 
     /*
-     * Initialize form after FormBuilder is available.
+     * Initialize after FormBuilder has been injected.
      */
     this.form = this.fb.nonNullable.group({
 
@@ -418,13 +420,17 @@ export class ManageUsersNewComponent implements OnInit {
           Validators.maxLength(100),
 
           /*
-           * Allows normal names such as:
+           * Allows:
            * John
            * John Doe
-           * Mary-Jane
+           * John-Doe
            * O'Connor
            *
-           * Prevents arbitrary special characters.
+           * Rejects:
+           * John@
+           * John#
+           * John$
+           * John123
            */
           Validators.pattern(
             /^[A-Za-z]+(?:[ '-][A-Za-z]+)*$/
@@ -450,21 +456,20 @@ export class ManageUsersNewComponent implements OnInit {
         ]
       ]
     });
+  }
 
-    /*
-     * Check whether this is Add or Edit.
-     */
+  ngOnInit(): void {
+
     this.userId =
       this.route.snapshot.paramMap.get('id');
 
     this.isEdit = !!this.userId;
 
-    /*
-     * If editing an existing staff user,
-     * load the user details.
-     */
     if (this.userId) {
-      this.loadUser(this.userId);
+
+      this.loadUser(
+        this.userId
+      );
     }
   }
 
@@ -489,10 +494,6 @@ export class ManageUsersNewComponent implements OnInit {
             user.address
         });
 
-        /*
-         * Display existing profile picture
-         * when available.
-         */
         this.previewUrl =
           user.profilePictureUrl ?? null;
 
@@ -530,7 +531,7 @@ export class ManageUsersNewComponent implements OnInit {
       input.files[0];
 
     /*
-     * BR04 profile picture types.
+     * Allowed profile-picture formats.
      */
     const allowedTypes = [
       'image/jpeg',
@@ -551,7 +552,7 @@ export class ManageUsersNewComponent implements OnInit {
     }
 
     /*
-     * Maximum profile picture size: 5 MB.
+     * Maximum file size = 5 MB.
      */
     const maxSize =
       5 * 1024 * 1024;
@@ -567,10 +568,11 @@ export class ManageUsersNewComponent implements OnInit {
     }
 
     this.error = '';
+
     this.selectedFile = file;
 
     /*
-     * Display image preview.
+     * Create preview.
      */
     const reader =
       new FileReader();
@@ -595,9 +597,6 @@ export class ManageUsersNewComponent implements OnInit {
     this.error = '';
     this.success = '';
 
-    /*
-     * Stop submission if validation fails.
-     */
     if (this.form.invalid) {
 
       this.form.markAllAsTouched();
@@ -607,9 +606,6 @@ export class ManageUsersNewComponent implements OnInit {
 
     this.saving = true;
 
-    /*
-     * Prepare staff user request.
-     */
     const request = {
 
       name:
@@ -623,7 +619,7 @@ export class ManageUsersNewComponent implements OnInit {
     };
 
     /*
-     * EDIT existing staff user.
+     * EDIT STAFF USER
      */
     if (
       this.isEdit &&
@@ -669,7 +665,7 @@ export class ManageUsersNewComponent implements OnInit {
     }
 
     /*
-     * CREATE new staff user.
+     * CREATE STAFF USER
      */
     this.staffUserApi
       .create(request)
@@ -711,9 +707,6 @@ export class ManageUsersNewComponent implements OnInit {
     ]);
   }
 
-  /*
-   * Used by the HTML to show validation state.
-   */
   get nameInvalid(): boolean {
 
     const control =
@@ -756,10 +749,6 @@ export class ManageUsersNewComponent implements OnInit {
     );
   }
 
-  /*
-   * Safely extract a backend error message
-   * without using "any".
-   */
   private getErrorMessage(
     error: unknown,
     defaultMessage: string
