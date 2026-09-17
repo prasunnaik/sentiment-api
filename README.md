@@ -1,43 +1,21 @@
 /**
- * Service responsible for policy application creation,
- * retrieval, and approval or rejection decisions.
- */
-@Service
-@Transactional
-public class PolicyApplicationService {
-
-
-
-
-/**
- * Creates a new pending policy application for a customer.
+ * Creates a new insurance policy.
  *
- * <p>The selected policy must be active and the customer cannot have
- * another pending application for the same policy.</p>
- *
- * @param customerId authenticated customer's identifier
- * @param request policy application details
- * @return created policy application
- * @throws ApplicationStateException if the policy is not active
- * @throws DuplicatePendingApplicationException if a pending application
- *         already exists for the customer and policy
+ * @param request policy creation details
+ * @return created policy
+ * @throws PolicyNotFoundException if the referenced category does not exist
+
  */
-
-
-
 
 
 
 
  /**
- * Retrieves policy applications visible to the authenticated user.
+ * Retrieves policies that are active for customers.
  *
- * <p>Staff users can retrieve applications across customers, while
- * customers can retrieve only their own applications.</p>
+ * <p>Both the policy and its category must be active.</p>
  *
- * @param principal authenticated user
- * @param status optional status filter
- * @return list of policy applications
+ * @return list of customer-visible active policies
 
  */
 
@@ -47,13 +25,12 @@ public class PolicyApplicationService {
 
 
  /**
- * Retrieves a policy application after checking customer ownership.
+ * Retrieves a policy by ID.
  *
- * @param principal authenticated user
- * @param applicationId policy application identifier
- * @return policy application details
- * @throws ApplicationNotFoundException if the application does not exist
- *         or is not accessible by the customer
+ * @param id policy identifier
+ * @return policy details
+ * @throws PolicyNotFoundException if the policy does not exist
+
  */
 
 
@@ -63,13 +40,12 @@ public class PolicyApplicationService {
 
 
  /**
- * Approves a pending policy application and calculates its end date
- * using the policy duration.
+ * Updates an existing insurance policy.
  *
- * @param staffUserId staff user making the approval decision
- * @param applicationId policy application identifier
- * @return approval decision details
- * @throws ApplicationStateException if the application cannot be approved
+ * @param id policy identifier
+ * @param request updated policy details
+ * @return updated policy
+ * @throws PolicyNotFoundException if the policy does not exist
 
  */
 
@@ -79,12 +55,10 @@ public class PolicyApplicationService {
 
 
  /**
- * Rejects a pending policy application.
+ * Deletes an insurance policy.
  *
- * @param staffUserId staff user making the rejection decision
- * @param applicationId policy application identifier
- * @return rejection decision details
- * @throws ApplicationStateException if the application cannot be rejected
+ * @param id policy identifier
+ * @throws PolicyNotFoundException if the policy does not exist
 
  */
 
@@ -93,34 +67,10 @@ public class PolicyApplicationService {
 
 
 
-/**
- * Retrieves a policy application entity for use by collaborating services.
+ /**
+ * Retrieves a policy entity by ID.
  *
- * @param applicationId policy application identifier
- * @return policy application entity
- * @throws ApplicationNotFoundException if the application does not exist
+ * @param id policy identifier
+ * @return policy entity
+ * @throws PolicyNotFoundException if the policy does not exist
  */
-public PolicyApplication getApplicationEntityForInternalUse(
-
-
-
-
-
-
-/**
- * Calculates an application end date from the policy duration label.
- *
- * <p>The numeric portion of the duration label is interpreted as years.
- * When no numeric value is available, one year is used as the default.</p>
- *
- * @param startDate application start date
- * @param durationLabel policy duration label
- * @return calculated policy end date
-
- */
-
-
-
-
- 
- 
