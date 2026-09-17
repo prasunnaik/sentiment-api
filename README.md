@@ -1,30 +1,27 @@
 /**
- * JPA entity representing a staff user.
+ * Service responsible for staff user management and profile picture storage.
  *
- * <p>Staff user credentials and profile information are persisted
- * in the {@code staff_users} database table.</p>
+ * <p>This service handles staff creation, retrieval, updating, deletion,
+ * email uniqueness validation, and profile picture management using S3.</p>
  */
-@Entity
-@Table(name = "staff_users")
-public class StaffUser {
+@Service
+@Transactional
+public class StaffUserService {
 
 
 
 
 
 /**
- * Creates a staff user with the supplied profile and password hash.
+ * Creates the staff user service with its required dependencies.
  *
- * @param fullName staff user's full name
- * @param email staff user's email address
- * @param address staff user's address
- * @param passwordHash encoded password
+ * @param staffUserRepository repository for staff users
+ * @param customerRepository repository used to validate email uniqueness
+ * @param passwordEncoder encoder used to hash passwords
+ * @param storageService service used for S3 file operations
  */
-public StaffUser(
-        String fullName,
-        String email,
-        String address,
-        String passwordHash) {
+public StaffUserService(
+
 
 
 
@@ -32,27 +29,17 @@ public StaffUser(
 
 
 /**
- * Initializes the creation timestamp before the entity is persisted.
- */
-@PrePersist
-void prePersist() {
-
-
-
-
-
-/**
- * Updates the staff user's profile information.
+ * Creates a new staff user after validating email uniqueness.
  *
- * <p>The password is updated only when a non-blank password hash
- * is supplied.</p>
+ * <p>The supplied password is encoded before it is stored.</p>
  *
- * @param fullName updated full name
- * @param email updated email address
- * @param address updated address
- * @param passwordHash optional encoded password
+ * @param request staff user creation details
+ * @return newly created staff user profile
+ * @throws DuplicateEmailException if the email is already used by
+ *         a customer or another staff user
  */
-public void update(
+public StaffProfileResponse create(
+
 
 
 
@@ -60,26 +47,19 @@ public void update(
 
 
 /**
- * Updates the S3 key associated with the staff user's profile picture.
+ * Uploads a profile picture for a staff user.
  *
- * @param s3Key S3 object key, or {@code null} to remove the association
- */
-public void updateProfilePictureS3Key(String s3Key) {
-
-
-
-
-
-
-/**
- * JPA entity representing a customer.
+ * <p>If the staff user already has a profile picture, the old S3 object
+ * is deleted after the new object is uploaded.</p>
  *
- * <p>Customer information is persisted in the {@code customers}
- * database table.</p>
+ * @param id unique identifier of the staff user
+ * @param file profile picture to upload
+ * @return updated staff user profile
+ * @throws StaffUserNotFoundException if the staff user does not exist
+ * @throws IllegalArgumentException if the file is null or empty
  */
-@Entity
-@Table(name = "customers")
-public class Customer {
+public StaffProfileResponse uploadProfilePicture(
+
 
 
 
@@ -87,15 +67,13 @@ public class Customer {
 
 
 /**
- * Creates a customer with the supplied profile information.
+ * Deletes the staff user's profile picture from S3 and removes
+ * its S3 key from the staff user record.
  *
- * @param fullName customer's full name
- * @param phone customer's phone number
- * @param email customer's email address
- * @param passwordHash encoded password
+ * @param id unique identifier of the staff user
+ * @throws StaffUserNotFoundException if the staff user does not exist
  */
-public Customer(
-
+public void deleteProfilePicture(UUID id) {
 
 
 
@@ -103,25 +81,12 @@ public Customer(
 
 
 /**
- * Initializes the creation timestamp before the customer is persisted.
- */
-@PrePersist
-void prePersist() {
-
-
-
-
-
-
-
-/**
- * Updates the customer's editable profile information.
+ * Retrieves all staff users.
  *
- * @param fullName updated full name
- * @param phone updated phone number
+ * @return list of staff user profiles
  */
-public void update(String fullName, String phone) {
-
+@Transactional(readOnly = true)
+public List<StaffProfileResponse> list() {
 
 
 
@@ -129,25 +94,15 @@ public void update(String fullName, String phone) {
 
 
 /**
- * Repository for performing persistence operations on customers.
- */
-public interface CustomerRepository
-        extends JpaRepository<Customer, UUID> {
-
-
-
-
-
-
-/**
- * Checks whether a customer exists with the specified email,
- * ignoring case.
+ * Retrieves a staff user by ID.
  *
- * @param email email address to check
- * @return {@code true} if a customer with the email exists;
- *         otherwise {@code false}
+ * @param id unique identifier of the staff user
+ * @return staff user profile
+ * @throws StaffUserNotFoundException if the staff user does not exist
  */
-boolean existsByEmailIgnoreCase(String email);
+@Transactional(readOnly = true)
+public StaffProfileResponse get(UUID id) {
+
 
 
 
@@ -155,12 +110,18 @@ boolean existsByEmailIgnoreCase(String email);
 
 
 /**
- * Finds a customer by email, ignoring case.
+ * Updates an existing staff user's profile information.
  *
- * @param email email address to search for
- * @return matching customer, if present
+ * <p>If a new password is provided, it is encoded before being stored.
+ * If no password is provided, the existing password is retained.</p>
+ *
+ * @param id unique identifier of the staff user
+ * @param request updated staff user information
+ * @return updated staff user profile
+ * @throws StaffUserNotFoundException if the staff user does not exist
+ * @throws DuplicateEmailException if the new email is already in use
  */
-Optional<Customer> findByEmailIgnoreCase(String email);
+public StaffProfileResponse update(
 
 
 
@@ -168,7 +129,61 @@ Optional<Customer> findByEmailIgnoreCase(String email);
 
 
 /**
- * Repository for performing persistence operations on staff users.
+ * Deletes a staff user and its associated profile picture from S3,
+ * when one exists.
+ *
+ * @param id unique identifier of the staff user
+ * @throws StaffUserNotFoundException if the staff user does not exist
  */
-public interface StaffUserRepository
-        extends JpaRepository<StaffUser, UUID> {
+public void delete(UUID id) {
+
+
+
+
+
+
+
+/**
+ * Finds a staff user by ID.
+ *
+ * @param id unique identifier of the staff user
+ * @return matching staff user entity
+ * @throws StaffUserNotFoundException if the staff user does not exist
+ */
+private StaffUser find(UUID id) {
+
+
+
+
+
+
+
+/**
+ * Validates that an email address is not already registered by
+ * a staff user or customer.
+ *
+ * @param email normalized email address to validate
+ * @throws DuplicateEmailException if the email is already in use
+ */
+private void validateEmailNotUsed(String email) {
+
+
+
+
+
+
+
+/**
+ * Converts a staff user entity into its API response representation.
+ *
+ * <p>If a profile picture exists, a presigned S3 download URL is generated.</p>
+ *
+ * @param staffUser staff user entity
+ * @return staff user profile response
+ */
+private StaffProfileResponse toResponse(StaffUser staffUser) {
+
+
+
+
+
