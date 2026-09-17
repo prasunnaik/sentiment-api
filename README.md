@@ -1,46 +1,54 @@
 /**
- * Creates a new insurance category.
+ * Service responsible for calculating staff dashboard metrics.
  *
- * @param request category creation details
- * @return created category
-
+ * <p>Metrics are aggregated from customer, staff, category, policy,
+ * application, claim, and payment data.</p>
  */
+@Service
+@Transactional(readOnly = true)
+public class DashboardService {
 
 
-
- /**
- * Retrieves all insurance categories.
- *
- * @return list of categories
-
- */
 
 
 
 /**
- * Updates an existing insurance category.
+ * Retrieves aggregate metrics used by the staff dashboard.
  *
- * @param id category identifier
- * @param request updated category details
- * @return updated category
- * @throws CategoryNotFoundException if the category does not exist
-
+ * @return dashboard metrics containing customer, staff, category,
+ *         policy, application, claim, and payment counts
  */
+public DashboardMetricsResponse getMetrics() {
 
 
 
 
 
- /**
- * Deletes an insurance category.
+
+/**
+ * Counts all rows in the specified database table.
  *
- * @param id category identifier
- * @throws CategoryNotFoundException if the category does not exist
-
+ * @param tableName database table name
+ * @return number of rows in the table
  */
+private long countTable(String tableName) {
 
 
 
 
- 
- 
+
+
+/**
+ * Counts rows in a database table having the specified status.
+ *
+ * @param tableName database table name
+ * @param status status value to match
+ * @return number of matching rows
+ */
+private long countByStatus(String tableName, String status) {
+
+
+
+
+
+
