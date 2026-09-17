@@ -1,16 +1,11 @@
 /**
- * Creates a new pending policy application using the current policy's
- * coverage and premium amounts.
+ * Creates an application document record.
  *
- * @param applicationCode unique application code
- * @param customerId customer submitting the application
- * @param policy policy being applied for
- * @param coverageType selected coverage type
- * @param dateOfBirth customer's date of birth
- * @param address customer's address
- * @param preferredStartDate requested policy start date
- * @param nomineeName nominee's name
- * @param nomineeRelationship nominee's relationship to the customer
+ * @param policyApplication policy application associated with the document
+ * @param fileName original file name
+ * @param contentType MIME type of the file
+ * @param s3Key S3 object key
+ * @param uploadedBy identifier of the user who uploaded the file
 
  */
 
@@ -18,47 +13,68 @@
 
 
  /**
- * Approves a pending policy application.
- *
- * @param staffUserId staff user making the decision
- * @param startDate policy start date
- * @param endDate policy end date
- * @throws IllegalStateException if the application is not pending
+ * Represents the lifecycle status of a policy application.
  */
-public void approve(
+public enum ApplicationStatus {
+
+
+
+
+/**
+ * Represents the status of an insurance policy category.
+ */
+public enum CategoryStatus {
+
 
 
 
 
 
 /**
- * Rejects a pending policy application.
- *
- * @param staffUserId staff user making the rejection decision
- * @throws IllegalStateException if the application is not pending
+ * Represents the type of coverage selected for a policy application.
  */
-public void reject(UUID staffUserId) {
+public enum CoverageType {
 
 
 
 
 
 /**
- * Checks whether the application belongs to the specified customer.
- *
- * @param customerId customer identifier
- * @return {@code true} if the application belongs to the customer
+ * Represents the relationship between a customer and their nominee.
  */
-public boolean isOwnedBy(UUID customerId) {
+public enum NomineeRelationship {
 
 
 
 
 
 /**
- * Checks whether the application has an ACTIVE status.
- *
- * @return {@code true} when the application is active
+ * Represents the lifecycle status of an insurance policy.
  */
-public boolean isActive() {
+public enum PolicyStatus {
 
+
+
+
+
+
+
+/**
+ * Repository for policy application document persistence operations.
+ */
+public interface ApplicationDocumentRepository
+        extends JpaRepository<ApplicationDocument, UUID> {
+
+
+
+
+
+
+   /**
+ * Retrieves documents for a policy application in reverse chronological order.
+ *
+ * @param policyApplicationId policy application identifier
+ * @return list of documents ordered from newest to oldest
+ */
+List<ApplicationDocument> findByPolicyApplicationIdOrderByCreatedAtDesc(
+        UUID policyApplicationId);
