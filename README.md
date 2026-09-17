@@ -1,89 +1,45 @@
 /**
- * Service responsible for uploading, retrieving, and deleting
- * documents associated with policy applications.
+ * Creates a new insurance category.
  *
- * <p>Document files are stored in S3 while their metadata is stored
- * in the application database.</p>
- */
-@Service
-@Transactional
-public class ApplicationDocumentService {
-
-
-
-
-
-/**
- * Uploads a document for a policy application and stores its metadata.
- *
- * @param principal authenticated user
- * @param applicationId policy application identifier
- * @param file document to upload
- * @return uploaded document metadata and presigned download URL
- * @throws InvalidFileException if the file is missing or empty
- * @throws ApplicationNotFoundException if the application cannot be accessed
-
- */
-
-
-
-
-
-
- /**
- * Lists documents associated with a policy application.
- *
- * @param principal authenticated user
- * @param applicationId policy application identifier
- * @return application documents ordered by creation time
-
- */
-
-
-
-
-
-
-/**
- * Deletes an application document from both S3 and the database.
- *
- * @param principal authenticated user
- * @param applicationId policy application identifier
- * @param documentId document identifier
+ * @param request category creation details
+ * @return created category
 
  */
 
 
 
  /**
- * Retrieves an application and verifies that the authenticated customer
- * owns it when the caller has the CUSTOMER role.
+ * Retrieves all insurance categories.
  *
- * <p>Staff users are allowed to access applications without an ownership
- * restriction.</p>
- *
- * @param principal authenticated user
- * @param applicationId policy application identifier
- * @return accessible policy application
- * @throws ApplicationNotFoundException if the application does not exist
- *         or a customer attempts to access another customer's application
- */
+ * @return list of categories
 
+ */
 
 
 
 /**
- * Converts an application document entity into its API response.
+ * Updates an existing insurance category.
  *
- * @param document application document entity
- * @return document response containing a presigned download URL
+ * @param id category identifier
+ * @param request updated category details
+ * @return updated category
+ * @throws CategoryNotFoundException if the category does not exist
 
  */
 
 
 
 
- 
+
+ /**
+ * Deletes an insurance category.
+ *
+ * @param id category identifier
+ * @throws CategoryNotFoundException if the category does not exist
+
+ */
+
+
 
 
  
