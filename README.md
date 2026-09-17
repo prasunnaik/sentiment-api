@@ -1,67 +1,22 @@
 /**
- * Aspect responsible for automatically uploading multipart files to S3
- * for methods annotated with {@link EnableS3Upload}.
- */
-@Aspect
-@Component
-public class S3UploadAspect {
-
-
-
-
-
-/**
- * Intercepts methods annotated with {@link EnableS3Upload}, uploads the
- * supplied multipart file to S3, and stores the resulting S3 key on the
- * target object's {@link S3FileField}-annotated field.
+ * Spring Boot auto-configuration for S3 file storage.
  *
- * @param joinPoint intercepted method invocation
- * @param enableS3Upload S3 upload configuration from the annotation
- * @return result of the intercepted method
- * @throws Throwable if the intercepted method or S3 processing fails
+ * <p>Creates the Amazon S3 client and selects either the AWS-backed
+ * or disabled S3 file service based on the configured S3 properties.</p>
  */
-@Around("@annotation(enableS3Upload)")
-public Object upload(
-
+@Configuration
+@Import(...)
+@EnableConfigurationProperties(S3Properties.class)
+public class S3AutoConfiguration {
 
 
 
 
 /**
- * Sets the supplied S3 key on the first String field annotated
- * with {@link S3FileField}.
+ * Creates and configures the Amazon S3 client.
  *
- * @param target object containing the S3 key field
- * @param key S3 object key
- * @throws IllegalAccessException if the field cannot be accessed
- */
-private void setS3FileField(
-
-
-
-
-
-/**
- * Aspect responsible for deleting S3 objects for methods annotated
- * with {@link EnableS3Delete}.
- */
-@Aspect
-@Component
-public class S3DeleteAspect {
-
-
-
-
-
-/**
- * Intercepts methods annotated with {@link EnableS3Delete}, locates an
- * S3 key on method arguments, deletes the corresponding S3 object,
- * and then proceeds with the original method.
- *
- * @param joinPoint intercepted method invocation
- * @param enableS3Delete S3 deletion annotation
- * @return result of the intercepted method
- * @throws Throwable if S3 deletion or the intercepted method fails
+ * @param properties configured S3 properties
+ * @return configured Amazon S3 client
 
  */
 
@@ -70,10 +25,100 @@ public class S3DeleteAspect {
 
 
  /**
- * Finds the S3 object key from an object containing a
- * {@link S3FileField}-annotated String field.
+ * Creates the AWS-backed S3 file service when S3 is enabled.
  *
- * @param target object to inspect
- * @return S3 object key, or {@code null} when no key is found
- * @throws IllegalAccessException if the field cannot be accessed
+ * @param amazonS3 configured Amazon S3 client
+ * @param properties configured S3 properties
+ * @return AWS-backed S3 file service
+
  */
+
+
+
+
+
+
+ /**
+ * Creates the disabled S3 service when S3 storage is not enabled.
+ *
+ * @return disabled S3 file service
+
+ */
+
+
+
+ S3Properties
+/**
+ * Configuration properties for S3 file storage.
+ *
+ * <p>Properties are loaded using the
+ * {@code ng.file-upload.s3} configuration prefix.</p>
+ *
+ * @param enabled whether S3 storage is enabled
+ * @param bucketName S3 bucket name
+ * @param region AWS region
+ * @param accessKey AWS access key
+ * @param secretKey AWS secret key
+ * @param endpoint optional custom S3-compatible endpoint
+ * @param pathStyleAccessEnabled whether path-style access is enabled
+ * @param keyPrefix optional prefix applied to generated S3 keys
+ * @param download download configuration
+ */
+@ConfigurationProperties(prefix = "ng.file-upload.s3")
+public record S3Properties(
+
+
+
+/**
+ * Returns the lifetime of generated presigned download URLs.
+ *
+ * @return presigned URL lifetime
+ */
+public Duration presignedUrlTtl() {
+
+
+
+/**
+ * Configuration controlling S3 download functionality.
+ *
+ * @param enabled whether S3 download endpoints are enabled
+ */
+public record Download(boolean enabled) {
+}
+
+
+
+
+
+
+
+
+
+
+
+/**
+ * REST controller for generating S3 presigned download URLs.
+ *
+ * <p>The controller is available only when S3 download functionality
+ * is enabled.</p>
+ */
+@RestController
+@RequestMapping("/api/storage")
+...
+public class S3FileController {
+
+
+
+
+
+/**
+ * Generates a temporary presigned URL for downloading an S3 object.
+ *
+ * @param key S3 object key
+ * @return response containing the download URL and expiration timestamp
+ */
+@GetMapping("/download-url")
+public ResponseEntity<Map<String, Object>> downloadUrl(
+
+
+ 
