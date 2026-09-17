@@ -1,42 +1,40 @@
 /**
- * REST controller for managing staff users.
+ * Request data used to create a staff user.
  *
- * <p>All endpoints in this controller are restricted to authenticated
- * users with the STAFF role.</p>
+ * @param fullName staff user's full name
+ * @param email staff user's email address
+ * @param address staff user's address
+ * @param password plain-text password supplied during creation
  */
-@RestController
-@RequestMapping("/api/staff/users")
-@PreAuthorize("hasRole('STAFF')")
-public class StaffUserManagementController {
+public record StaffCreateRequest(
+
+
+
+
+/**
+ * Request data used to update an existing staff user.
+ *
+ * <p>The password is optional. When omitted or blank, the existing
+ * password is retained.</p>
+ *
+ * @param fullName updated staff user's full name
+ * @param email updated staff user's email address
+ * @param address updated staff user's address
+ * @param password optional new password
+ */
+public record StaffUpdateRequest(
 
 
 
 
 
 /**
- * Creates the staff user management controller.
+ * Request data used to authenticate a customer.
  *
- * @param staffUserService service responsible for staff user operations
+ * @param email customer's email address
+ * @param password customer's password
  */
-public StaffUserManagementController(
-        StaffUserService staffUserService) {
-    this.staffUserService = staffUserService;
-}
-
-
-
-
-
-/**
- * Creates a new staff user.
- *
- * @param request staff user details to create
- * @return the created staff user's profile
- */
-@PostMapping
-public ResponseEntity<StaffProfileResponse> create(
-        @Valid @RequestBody StaffCreateRequest request) {
-
+public record CustomerLoginRequest(
 
 
 
@@ -44,12 +42,27 @@ public ResponseEntity<StaffProfileResponse> create(
 
 
 /**
- * Retrieves all staff users.
+ * Request data used to register a new customer.
  *
- * @return list of staff user profiles
+ * @param fullName customer's full name
+ * @param phone customer's phone number
+ * @param email customer's email address
+ * @param password customer's password
  */
-@GetMapping
-public List<StaffProfileResponse> list() {
+public record CustomerRegistrationRequest(
+
+
+
+
+
+
+/**
+ * Request data used to authenticate a staff user.
+ *
+ * @param email staff user's email address
+ * @param password staff user's password
+ */
+public record StaffLoginRequest(
 
 
 
@@ -58,14 +71,15 @@ public List<StaffProfileResponse> list() {
 
 
 /**
- * Retrieves a staff user by ID.
+ * Response containing staff user profile information.
  *
  * @param id unique identifier of the staff user
- * @return the requested staff user's profile
+ * @param fullName staff user's full name
+ * @param email staff user's email address
+ * @param address staff user's address
+ * @param profilePictureUrl temporary URL used to access the profile picture
  */
-@GetMapping("/{id}")
-public StaffProfileResponse get(
-        @PathVariable UUID id) {
+public record StaffProfileResponse(
 
 
 
@@ -73,67 +87,16 @@ public StaffProfileResponse get(
 
 
 /**
- * Updates an existing staff user's details.
+ * Response containing customer profile information.
  *
- * @param id unique identifier of the staff user
- * @param request updated staff user details
- * @return the updated staff user's profile
+ * @param id unique identifier of the customer
+ * @param fullName customer's full name
+ * @param phone customer's phone number
+ * @param email customer's email address
  */
-@PutMapping("/{id}")
-public StaffProfileResponse update(
-        @PathVariable UUID id,
-        @Valid @RequestBody StaffUpdateRequest request) {
+public record CustomerProfileResponse(
 
 
 
 
 
-
-/**
- * Deletes a staff user and any associated profile picture.
- *
- * @param id unique identifier of the staff user
- */
-@DeleteMapping("/{id}")
-public ResponseEntity<Void> delete(
-        @PathVariable UUID id) {
-
-
-
-
-
-
-
-/**
- * Uploads or replaces the profile picture for a staff user.
- *
- * @param id unique identifier of the staff user
- * @param file profile picture to upload
- * @return updated staff user profile containing the profile picture URL
- */
-@PostMapping(
-        value = "/{id}/profile-picture",
-        consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-public StaffProfileResponse uploadProfilePicture(
-        @PathVariable UUID id,
-        @RequestPart("file") MultipartFile file) {
-
-
-
-
-
-
-
-/**
- * Deletes the profile picture associated with a staff user.
- *
- * @param id unique identifier of the staff user
- */
-@DeleteMapping("/{id}/profile-picture")
-public ResponseEntity<Void> deleteProfilePicture(
-        @PathVariable UUID id) {
-
-
-
-
-   
