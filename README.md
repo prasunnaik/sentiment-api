@@ -1,76 +1,48 @@
 /**
- * Creates a new insurance policy.
+ * Enables automatic S3 file upload processing around a method.
  *
- * @param request policy creation details
- * @return created policy
- * @throws PolicyNotFoundException if the referenced category does not exist
-
+ * <p>The associated aspect searches the method arguments for a
+ * {@link MultipartFile} and stores the resulting S3 key in a field
+ * annotated with {@link S3FileField}.</p>
+ *
+ * @return folder in which the uploaded file should be stored
  */
+String folder() default "uploads";
 
 
 
 
- /**
- * Retrieves policies that are active for customers.
- *
- * <p>Both the policy and its category must be active.</p>
- *
- * @return list of customer-visible active policies
+import org.springframework.web.multipart.MultipartFile;
 
+
+
+/**
+ * Enables automatic deletion of an S3 object before the annotated
+ * method executes.
  */
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface EnableS3Delete {
+}
 
 
 
 
 
-
- /**
- * Retrieves a policy by ID.
+/**
+ * Marks a String field as containing an S3 object key.
  *
- * @param id policy identifier
- * @return policy details
- * @throws PolicyNotFoundException if the policy does not exist
-
- */
-
-
-
-
-
-
-
- /**
- * Updates an existing insurance policy.
+ * <p>S3 upload and delete aspects use this annotation to locate
+ * the S3 key on an object.</p>
  *
- * @param id policy identifier
- * @param request updated policy details
- * @return updated policy
- * @throws PolicyNotFoundException if the policy does not exist
-
+ * @return folder associated with the S3 file
  */
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface S3FileField {
 
 
 
 
 
 
- /**
- * Deletes an insurance policy.
- *
- * @param id policy identifier
- * @throws PolicyNotFoundException if the policy does not exist
-
- */
-
-
-
-
-
-
- /**
- * Retrieves a policy entity by ID.
- *
- * @param id policy identifier
- * @return policy entity
- * @throws PolicyNotFoundException if the policy does not exist
- */
