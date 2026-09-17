@@ -1,64 +1,74 @@
 /**
- * REST controller that exposes dashboard metrics for staff users.
+ * JPA entity representing an insurance policy category.
  */
-@RestController
-@RequestMapping("/api/dashboard")
-@PreAuthorize("hasRole('STAFF')")
-public class DashboardController {
+@Entity
+@Table(name = "categories")
+public class Category {
 
 
 
 
 
 /**
- * Retrieves aggregate metrics displayed on the staff dashboard.
+ * Creates a policy category.
  *
- * @return dashboard metrics
- */
-@GetMapping("/metrics")
-public DashboardMetricsResponse metrics() {
-
-
-
+ * @param name category name
+ * @param description category description
+ * @param status
 
 
 /**
- * REST controller for creating and managing policy applications.
+ * Creates a policy category.
  *
- * <p>Customers can create and view their applications, while staff
- * users can view applications and approve or reject them.</p>
- */
-@RestController
-@RequestMapping("/api/applications")
-public class PolicyApplicationController {
-
-
-
-
-
-/**
- * Creates a new policy application for the authenticated customer.
- *
- * @param principal authenticated customer
- * @param request policy application details
- * @return created policy application
+ * @param name category name
+ * @param description category description
+ * @param status category status
 
  */
 
 
 
 
-
- 
+ /**
+ * Initializes the creation timestamp before persistence.
 /**
- * Lists policy applications visible to the authenticated user.
+ * Initializes the creation timestamp before persistence.
+ */
+
+
+
+
+/**
+ * Updates the category's editable fields.
  *
- * <p>Customers receive their own applications, while staff users
- * can retrieve applications across customers.</p>
+ * @param name updated category name
+ * @param description updated category description
+ * @param status updated category status
+
+ */
+
+
+
+
+ /**
+ * JPA entity representing an insurance policy.
+ */
+@Entity
+@Table(name = "policies")
+public class Policy {
+
+
+
+
+/**
+ * Creates an insurance policy.
  *
- * @param principal authenticated user
- * @param status optional application status filter
- * @return list of policy applications
+ * @param name policy name
+ * @param category policy category
+ * @param coverageAmount amount covered by the policy
+ * @param premiumAmount premium amount
+ * @param durationLabel policy duration
+ * @param status policy status
 
  */
 
@@ -67,114 +77,17 @@ public class PolicyApplicationController {
 
 
  /**
- * Retrieves a policy application by ID.
+ * Determines whether the policy can currently be shown to customers.
  *
- * @param principal authenticated user
- * @param id policy application identifier
- * @return policy application details
-
- */
-
-
-
-
-
- /**
- * Approves a pending policy application.
+ * <p>A policy is customer-active only when both the policy and its
+ * category have an ACTIVE status.</p>
  *
- * @param principal authenticated staff user
- * @param id policy application identifier
- * @return result of the approval decision
-
+ * @return {@code true} when the policy and category are active;
+ *         otherwise {@code false}
  */
-
- 
-
-
-
-/**
- * Rejects a pending policy application.
- *
- * @param principal authenticated staff user
- * @param id policy application identifier
- * @return result of the rejection decision
-
- */
+public boolean isActiveForCustomer() {
 
 
 
 
 
- /**
- * REST controller for managing insurance policies.
- *
- * <p>Customers and staff can retrieve active policies.
- * Staff users can create, update, and delete policies.</p>
- */
-@RestController
-@RequestMapping("/api/policies")
-public class PolicyController {
-
-
-
-
-
-/**
- * Retrieves active policies available to customers.
- *
- * @return list of active policies
-
- */
-
-
-
-
- /**
- * Retrieves a policy by ID.
- *
- * @param id policy identifier
- * @return policy details
-
- */
-
-
-
- 
-
-/**
- * Creates a new insurance policy.
- *
- * @param request policy creation details
- * @return created policy
-
- */
-
-
-
-
-
- /**
- * Updates an existing insurance policy.
- *
- * @param id policy identifier
- * @param request updated policy details
- * @return updated policy
-
- */
-
-
-
-
-
-
- /**
- * Deletes an insurance policy.
- *
- * @param id policy identifier
-
- */
-
-
-
-
- 
