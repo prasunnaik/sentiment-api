@@ -1,80 +1,52 @@
 /**
- * Creates an application document record.
- *
- * @param policyApplication policy application associated with the document
- * @param fileName original file name
- * @param contentType MIME type of the file
- * @param s3Key S3 object key
- * @param uploadedBy identifier of the user who uploaded the file
-
+ * Repository for policy application persistence and query operations.
  */
-
-
-
-
- /**
- * Represents the lifecycle status of a policy application.
- */
-public enum ApplicationStatus {
-
-
-
-
-/**
- * Represents the status of an insurance policy category.
- */
-public enum CategoryStatus {
-
-
-
-
-
-
-/**
- * Represents the type of coverage selected for a policy application.
- */
-public enum CoverageType {
-
-
-
-
-
-/**
- * Represents the relationship between a customer and their nominee.
- */
-public enum NomineeRelationship {
-
-
-
-
-
-/**
- * Represents the lifecycle status of an insurance policy.
- */
-public enum PolicyStatus {
-
-
-
-
-
-
-
-/**
- * Repository for policy application document persistence operations.
- */
-public interface ApplicationDocumentRepository
-        extends JpaRepository<ApplicationDocument, UUID> {
-
-
-
+public interface PolicyApplicationRepository
+        extends JpaRepository<PolicyApplication, UUID> {
 
 
 
    /**
- * Retrieves documents for a policy application in reverse chronological order.
+ * Retrieves a customer's applications ordered from newest to oldest.
  *
- * @param policyApplicationId policy application identifier
- * @return list of documents ordered from newest to oldest
+ * @param customerId customer identifier
+ * @return customer's applications
  */
-List<ApplicationDocument> findByPolicyApplicationIdOrderByCreatedAtDesc(
-        UUID policyApplicationId);
+List<PolicyApplication> findByCustomerIdOrderByCreatedAtDesc(
+
+
+
+/**
+ * Retrieves applications with the specified status, ordered from newest
+ * to oldest.
+ *
+ * @param status application status
+ * @return matching applications
+ */
+List<PolicyApplication> findByStatusOrderByCreatedAtDesc(
+
+
+
+
+/**
+ * Checks whether a customer already has an application for a policy
+ * with the specified status.
+ *
+ * @param customerId customer identifier
+ * @param policyId policy identifier
+ * @param status application status
+ * @return {@code true} if such an application exists
+ */
+boolean existsByCustomerIdAndPolicyIdAndStatus(
+
+
+
+
+/**
+ * Retrieves the next value from the application code database sequence.
+ *
+ * @return next sequence value used to generate an application code
+ */
+@Query(...)
+Long nextApplicationCodeSequence();
+
