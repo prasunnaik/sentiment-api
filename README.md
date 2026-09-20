@@ -1,63 +1,2802 @@
-X [ERROR] TS2339: Property 'customerName' does not exist on type 'PolicyApplication'. [plugin angular-compiler]
-
-    src/app/pages/staff/approve-policies-list/approve-policies-list.component.html:56:27:
-      56 │             {{ application.customerName }}
-         ╵                            ~~~~~~~~~~~~
-
-  Error occurs in the template of component ApprovePoliciesListComponent.
-
-    src/app/pages/staff/approve-policies-list/approve-policies-list.component.ts:17:15:
-      17 │   templateUrl: './approve-policies-list.component.html',
-         ╵                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+package com.insurewise.auth.controller;
 
 
-X [ERROR] TS2339: Property 'customerName' does not exist on type 'PolicyApplication'. [plugin angular-compiler]
-
-    src/app/pages/staff/approve-policies-review/approve-policies-review.component.html:65:25:
-      65 │           {{ application.customerName }}
-         ╵                          ~~~~~~~~~~~~
-
-  Error occurs in the template of component ApprovePoliciesReviewComponent.
-
-    src/app/pages/staff/approve-policies-review/approve-policies-review.component.ts:22:15:
-      22 │   templateUrl: './approve-policies-review.component.html',
-         ╵                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-X [ERROR] TS2339: Property 'policyName' does not exist on type 'Policy'. [plugin angular-compiler]
-
-    src/app/pages/staff/policies-list/policies-list.component.html:48:24:
-      48 │           <td>{{ policy.policyName }}</td>
-         ╵                         ~~~~~~~~~~
-
-  Error occurs in the template of component PoliciesListComponent.
-
-    src/app/pages/staff/policies-list/policies-list.component.ts:17:15:
-      17 │   templateUrl: './policies-list.component.html',
-         ╵                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-X [ERROR] TS2339: Property 'premium' does not exist on type 'Policy'. [plugin angular-compiler]
 
-    src/app/pages/staff/policies-list/policies-list.component.html:55:22:
-      55 │             {{ policy.premium | currency:'INR' }}
-         ╵                       ~~~~~~~
-
-  Error occurs in the template of component PoliciesListComponent.
-
-    src/app/pages/staff/policies-list/policies-list.component.ts:17:15:
-      17 │   templateUrl: './policies-list.component.html',
-         ╵                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+import com.insurewise.auth.dto.request.StaffCreateRequest;
 
 
-X [ERROR] TS2339: Property 'duration' does not exist on type 'Policy'. [plugin angular-compiler]
 
-    src/app/pages/staff/policies-list/policies-list.component.html:63:22:
-      63 │             {{ policy.duration }}
-         ╵                       ~~~~~~~~
+import com.insurewise.auth.dto.request.StaffUpdateRequest;
 
-  Error occurs in the template of component PoliciesListComponent.
 
-    src/app/pages/staff/policies-list/policies-list.component.ts:17:15:
-      17 │   templateUrl: './policies-list.component.html',
-         ╵                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+import com.insurewise.auth.dto.response.StaffProfileResponse;
+
+
+
+import com.insurewise.auth.service.StaffUserService;
+
+
+
+import jakarta.validation.Valid;
+
+
+
+import java.util.List;
+
+
+
+import java.util.UUID;
+
+
+
+import org.springframework.http.HttpStatus;
+
+
+
+import org.springframework.http.MediaType;
+
+
+
+import org.springframework.http.ResponseEntity;
+
+
+
+import org.springframework.security.access.prepost.PreAuthorize;
+
+
+
+import org.springframework.web.bind.annotation.DeleteMapping;
+
+
+
+import org.springframework.web.bind.annotation.GetMapping;
+
+
+
+import org.springframework.web.bind.annotation.PathVariable;
+
+
+
+import org.springframework.web.bind.annotation.PostMapping;
+
+
+
+import org.springframework.web.bind.annotation.PutMapping;
+
+
+
+import org.springframework.web.bind.annotation.RequestBody;
+
+
+
+import org.springframework.web.bind.annotation.RequestMapping;
+
+
+
+import org.springframework.web.bind.annotation.RequestPart;
+
+
+
+import org.springframework.web.bind.annotation.RestController;
+
+
+
+import org.springframework.web.multipart.MultipartFile;
+
+
+
+
+
+
+
+@RestController
+
+
+
+@RequestMapping("/api/staff/users")
+
+
+
+@PreAuthorize("hasRole('STAFF')")
+
+
+
+public class StaffUserManagementController {
+
+
+
+
+
+
+
+    private final StaffUserService staffUserService;
+
+
+
+
+
+
+
+    public StaffUserManagementController(
+
+
+
+            StaffUserService staffUserService) {
+
+
+
+
+
+
+
+        this.staffUserService = staffUserService;
+
+
+
+    }
+
+
+
+
+
+
+
+    @PostMapping
+
+
+
+    public ResponseEntity create(
+
+
+
+            @Valid @RequestBody StaffCreateRequest request) {
+
+
+
+
+
+
+
+        return ResponseEntity
+
+
+
+                .status(HttpStatus.CREATED)
+
+
+
+                .body(staffUserService.create(request));
+
+
+
+    }
+
+
+
+
+
+
+
+    @GetMapping
+
+
+
+    public List list() {
+
+
+
+
+
+
+
+        return staffUserService.list();
+
+
+
+    }
+
+
+
+
+
+
+
+    @GetMapping("/{id}")
+
+
+
+    public StaffProfileResponse get(
+
+
+
+            @PathVariable UUID id) {
+
+
+
+
+
+
+
+        return staffUserService.get(id);
+
+
+
+    }
+
+
+
+
+
+
+
+    @PutMapping("/{id}")
+
+
+
+    public StaffProfileResponse update(
+
+
+
+            @PathVariable UUID id,
+
+
+
+            @Valid @RequestBody StaffUpdateRequest request) {
+
+
+
+
+
+
+
+        return staffUserService.update(
+
+
+
+                id,
+
+
+
+                request);
+
+
+
+    }
+
+
+
+
+
+
+
+    @DeleteMapping("/{id}")
+
+
+
+    public ResponseEntity delete(
+
+
+
+            @PathVariable UUID id) {
+
+
+
+
+
+
+
+        staffUserService.delete(id);
+
+
+
+
+
+
+
+        return ResponseEntity.noContent().build();
+
+
+
+    }
+
+
+
+
+
+
+
+    @PostMapping(
+
+
+
+            value = "/{id}/profile-picture",
+
+
+
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+
+
+
+    public StaffProfileResponse uploadProfilePicture(
+
+
+
+            @PathVariable UUID id,
+
+
+
+            @RequestPart("file") MultipartFile file) {
+
+
+
+
+
+
+
+        return staffUserService.uploadProfilePicture(
+
+
+
+                id,
+
+
+
+                file);
+
+
+
+    }
+
+
+
+
+
+
+
+    @DeleteMapping("/{id}/profile-picture")
+
+
+
+    public ResponseEntity deleteProfilePicture(
+
+
+
+            @PathVariable UUID id) {
+
+
+
+
+
+
+
+        staffUserService.deleteProfilePicture(id);
+
+
+
+
+
+
+
+        return ResponseEntity.noContent().build();
+
+
+
+    }
+
+
+
+}
+
+package com.insurewise.auth.dto.request;
+
+
+
+
+
+
+
+import jakarta.validation.constraints.Email;
+
+
+
+import jakarta.validation.constraints.NotBlank;
+
+
+
+import jakarta.validation.constraints.Size;
+
+
+
+
+
+
+
+public record StaffCreateRequest(
+
+
+
+
+
+
+
+        @NotBlank
+
+
+
+        @Size(max = 120)
+
+
+
+        String fullName,
+
+
+
+
+
+
+
+        @NotBlank
+
+
+
+        @Email
+
+
+
+        @Size(max = 160)
+
+
+
+        String email,
+
+
+
+
+
+
+
+        @NotBlank
+
+
+
+        @Size(max = 240)
+
+
+
+        String address,
+
+
+
+
+
+
+
+        @NotBlank
+
+
+
+        @Size(min = 8, max = 100)
+
+
+
+        String password
+
+
+
+) {
+
+
+
+}
+
+// Code Generated by Sidekick is for learning and experimentation purposes only.
+
+
+
+// filename: src/main/java/com/insurewise/auth/dto/request/StaffLoginRequest.java
+
+
+
+package com.insurewise.auth.dto.request;
+
+
+
+
+
+
+
+import jakarta.validation.constraints.Email;
+
+
+
+import jakarta.validation.constraints.NotBlank;
+
+
+
+
+
+
+
+public record StaffLoginRequest(
+
+
+
+        @NotBlank
+
+
+
+        @Email
+
+
+
+        String email,
+
+
+
+
+
+
+
+        @NotBlank
+
+
+
+        String password
+
+
+
+) {
+
+
+
+}
+
+
+
+package com.insurewise.auth.dto.request;
+
+
+
+
+
+
+
+import jakarta.validation.constraints.Email;
+
+
+
+import jakarta.validation.constraints.NotBlank;
+
+
+
+import jakarta.validation.constraints.Size;
+
+
+
+
+
+
+
+public record StaffUpdateRequest(
+
+
+
+
+
+
+
+        @NotBlank
+
+
+
+        @Size(max = 120)
+
+
+
+        String fullName,
+
+
+
+
+
+
+
+        @NotBlank
+
+
+
+        @Email
+
+
+
+        @Size(max = 160)
+
+
+
+        String email,
+
+
+
+
+
+
+
+        @NotBlank
+
+
+
+        @Size(max = 240)
+
+
+
+        String address,
+
+
+
+
+
+
+
+        @Size(min = 8, max = 100)
+
+
+
+        String password
+
+
+
+) {
+
+
+
+}
+
+package com.insurewise.auth.dto.response;
+
+
+
+
+
+
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+
+
+import java.util.UUID;
+
+
+
+
+
+
+
+public record CustomerProfileResponse(
+
+
+
+        UUID id,
+
+
+
+
+
+
+
+        @JsonProperty("full_name")
+
+
+
+        String fullName,
+
+
+
+
+
+
+
+        String phone,
+
+
+
+        String email
+
+
+
+) {
+
+
+
+}
+
+
+
+package com.insurewise.auth.dto.response;
+
+
+
+
+
+
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+
+
+import java.util.UUID;
+
+
+
+
+
+
+
+public record StaffProfileResponse(
+
+
+
+        UUID id,
+
+
+
+
+
+
+
+        @JsonProperty("full_name")
+
+
+
+        String fullName,
+
+
+
+
+
+
+
+        String email,
+
+
+
+
+
+
+
+        String address,
+
+
+
+
+
+
+
+        String profilePictureUrl
+
+
+
+) {
+
+
+
+}
+
+// Code Generated by Sidekick is for learning and experimentation purposes only.
+
+
+
+// filename: src/main/java/com/insurewise/auth/entity/Customer.java
+
+
+
+package com.insurewise.auth.entity;
+
+
+
+
+
+
+
+import jakarta.persistence.*;
+
+
+
+
+
+
+
+import java.util.UUID;
+
+
+
+
+
+
+
+@Entity
+
+
+
+@Table(name = "customers")
+
+
+
+public class Customer {
+
+
+
+    @Id
+
+
+
+    private UUID id;
+
+
+
+
+
+
+
+    @Column(name = "full_name", nullable = false, length = 120)
+
+
+
+    private String fullName;
+
+
+
+
+
+
+
+    @Column(nullable = false, length = 30)
+
+
+
+    private String phone;
+
+
+
+
+
+
+
+    @Column(nullable = false, unique = true, length = 160)
+
+
+
+    private String email;
+
+
+
+
+
+
+
+    @Column(name = "password_hash", nullable = false, length = 100)
+
+
+
+    private String passwordHash;
+
+
+
+
+
+
+
+    protected Customer() {
+
+
+
+    }
+
+
+
+
+
+
+
+    public Customer(String fullName, String phone, String email, String passwordHash) {
+
+
+
+        this.id = UUID.randomUUID();
+
+
+
+        this.fullName = fullName;
+
+
+
+        this.phone = phone;
+
+
+
+        this.email = email.toLowerCase();
+
+
+
+        this.passwordHash = passwordHash;
+
+
+
+    }
+
+
+
+
+
+
+
+    public UUID getId() {
+
+
+
+        return id;
+
+
+
+    }
+
+
+
+
+
+
+
+    public String getFullName() {
+
+
+
+        return fullName;
+
+
+
+    }
+
+
+
+
+
+
+
+    public String getPhone() {
+
+
+
+        return phone;
+
+
+
+    }
+
+
+
+
+
+
+
+    public String getEmail() {
+
+
+
+        return email;
+
+
+
+    }
+
+
+
+
+
+
+
+    public String getPasswordHash() {
+
+
+
+        return passwordHash;
+
+
+
+    }
+
+
+
+
+
+
+
+    public void update(String fullName, String phone) {
+
+
+
+        this.fullName = fullName;
+
+
+
+        this.phone = phone;
+
+
+
+    }
+
+
+
+}
+
+
+
+package com.insurewise.auth.entity;
+
+
+
+
+
+
+
+import jakarta.persistence.Column;
+
+
+
+import jakarta.persistence.Entity;
+
+
+
+import jakarta.persistence.Id;
+
+
+
+import jakarta.persistence.Table;
+
+
+
+import java.util.UUID;
+
+
+
+
+
+
+
+@Entity
+
+
+
+@Table(name = "staff_users")
+
+
+
+public class StaffUser {
+
+
+
+
+
+
+
+    @Id
+
+
+
+    private UUID id;
+
+
+
+
+
+
+
+    @Column(name = "full_name", nullable = false, length = 120)
+
+
+
+    private String fullName;
+
+
+
+
+
+
+
+    @Column(nullable = false, unique = true, length = 160)
+
+
+
+    private String email;
+
+
+
+
+
+
+
+    @Column(nullable = false, length = 240)
+
+
+
+    private String address;
+
+
+
+
+
+
+
+    @Column(name = "password_hash", nullable = false, length = 100)
+
+
+
+    private String passwordHash;
+
+
+
+
+
+
+
+    @Column(name = "profile_picture_s3_key", length = 600)
+
+
+
+    private String profilePictureS3Key;
+
+
+
+
+
+
+
+    protected StaffUser() {
+
+
+
+    }
+
+
+
+
+
+
+
+    public StaffUser(
+
+
+
+            String fullName,
+
+
+
+            String email,
+
+
+
+            String address,
+
+
+
+            String passwordHash) {
+
+
+
+
+
+
+
+        this.id = UUID.randomUUID();
+
+
+
+        this.fullName = fullName;
+
+
+
+        this.email = email.toLowerCase();
+
+
+
+        this.address = address;
+
+
+
+        this.passwordHash = passwordHash;
+
+
+
+    }
+
+
+
+
+
+
+
+    public UUID getId() {
+
+
+
+        return id;
+
+
+
+    }
+
+
+
+
+
+
+
+    public String getFullName() {
+
+
+
+        return fullName;
+
+
+
+    }
+
+
+
+
+
+
+
+    public String getEmail() {
+
+
+
+        return email;
+
+
+
+    }
+
+
+
+
+
+
+
+    public String getAddress() {
+
+
+
+        return address;
+
+
+
+    }
+
+
+
+
+
+
+
+    public String getPasswordHash() {
+
+
+
+        return passwordHash;
+
+
+
+    }
+
+
+
+
+
+
+
+    public String getProfilePictureS3Key() {
+
+
+
+        return profilePictureS3Key;
+
+
+
+    }
+
+
+
+
+
+
+
+    public void updateProfilePictureS3Key(String s3Key) {
+
+
+
+        this.profilePictureS3Key = s3Key;
+
+
+
+    }
+
+
+
+
+
+
+
+    public void update(
+
+
+
+            String fullName,
+
+
+
+            String email,
+
+
+
+            String address,
+
+
+
+            String passwordHash) {
+
+
+
+
+
+
+
+        this.fullName = fullName;
+
+
+
+        this.email = email.toLowerCase();
+
+
+
+        this.address = address;
+
+
+
+
+
+
+
+        if (passwordHash != null && !passwordHash.isBlank()) {
+
+
+
+            this.passwordHash = passwordHash;
+
+
+
+        }
+
+
+
+    }
+
+
+
+}
+
+
+
+package com.insurewise.auth.exception;
+
+
+
+
+
+
+
+import com.insurewise.common.exception.BusinessException;
+
+
+
+
+
+
+
+public class DuplicateEmailException extends BusinessException {
+
+
+
+
+
+
+
+    public DuplicateEmailException(String email) {
+
+
+
+        super(
+
+
+
+                "DUPLICATE_EMAIL",
+
+
+
+                "An account already exists for email: " + email);
+
+
+
+    }
+
+
+
+
+
+
+
+    public DuplicateEmailException(
+
+
+
+            String email,
+
+
+
+            Throwable cause) {
+
+
+
+        super(
+
+
+
+                "DUPLICATE_EMAIL",
+
+
+
+                "An account already exists for email: " + email,
+
+
+
+                cause);
+
+
+
+    }
+
+
+
+}
+
+
+
+package com.insurewise.auth.exception;
+
+
+
+
+
+
+
+import com.insurewise.common.exception.ValidationException;
+
+
+
+
+
+
+
+public class InvalidCredentialsException extends ValidationException {
+
+
+
+
+
+
+
+    public InvalidCredentialsException() {
+
+
+
+        super("INVALID_CREDENTIALS", "Invalid email or password");
+
+
+
+    }
+
+
+
+
+
+
+
+    public InvalidCredentialsException(Throwable cause) {
+
+
+
+        super("INVALID_CREDENTIALS", "Invalid email or password", cause);
+
+
+
+    }
+
+
+
+}
+
+
+
+package com.insurewise.auth.exception;
+
+
+
+
+
+
+
+import com.insurewise.common.exception.ResourceNotFoundException;
+
+
+
+import java.util.UUID;
+
+
+
+
+
+
+
+public class StaffUserNotFoundException extends ResourceNotFoundException {
+
+
+
+
+
+
+
+    public StaffUserNotFoundException(UUID id) {
+
+
+
+        super("STAFF_USER_NOT_FOUND", "Staff user not found: " + id);
+
+
+
+    }
+
+
+
+
+
+
+
+    public StaffUserNotFoundException(
+
+
+
+            UUID id,
+
+
+
+            Throwable cause) {
+
+
+
+        super(
+
+
+
+                "STAFF_USER_NOT_FOUND",
+
+
+
+                "Staff user not found: " + id,
+
+
+
+                cause);
+
+
+
+    }
+
+
+
+}
+
+package com.insurewise.auth.repository;
+
+
+
+
+
+
+
+import com.insurewise.auth.entity.Customer;
+
+
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+
+
+
+
+
+
+import java.util.Optional;
+
+
+
+import java.util.UUID;
+
+
+
+
+
+
+
+public interface CustomerRepository extends JpaRepository {
+
+
+
+    boolean existsByEmailIgnoreCase(String email);
+
+
+
+
+
+
+
+    Optional findByEmailIgnoreCase(String email);
+
+
+
+}
+
+
+
+package com.insurewise.auth.repository;
+
+
+
+
+
+
+
+import com.insurewise.auth.entity.StaffUser;
+
+
+
+import java.util.Optional;
+
+
+
+import java.util.UUID;
+
+
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+
+
+
+
+
+
+public interface StaffUserRepository extends JpaRepository {
+
+
+
+    boolean existsByEmailIgnoreCase(String email);
+
+
+
+
+
+
+
+    Optional findByEmailIgnoreCase(String email);
+
+
+
+}
+
+
+
+package com.insurewise.auth.service;
+
+
+
+
+
+
+
+import com.insurewise.auth.dto.request.StaffCreateRequest;
+
+
+
+import com.insurewise.auth.dto.request.StaffUpdateRequest;
+
+
+
+import com.insurewise.auth.dto.response.StaffProfileResponse;
+
+
+
+import com.insurewise.auth.entity.StaffUser;
+
+
+
+import com.insurewise.auth.exception.DuplicateEmailException;
+
+
+
+import com.insurewise.auth.exception.StaffUserNotFoundException;
+
+
+
+import com.insurewise.common.exception.InfrastructureException;
+
+
+
+import com.insurewise.common.exception.ValidationException;
+
+
+
+import com.insurewise.auth.repository.CustomerRepository;
+
+
+
+import com.insurewise.auth.repository.StaffUserRepository;
+
+
+
+import com.insurewise.common.dto.PresignedUrlResponse;
+
+
+
+import com.insurewise.common.service.S3StorageService;
+
+
+
+import java.util.List;
+
+
+
+import java.util.UUID;
+
+
+
+import org.springframework.dao.DataIntegrityViolationException;
+
+
+
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+
+
+import org.springframework.stereotype.Service;
+
+
+
+import org.springframework.transaction.annotation.Transactional;
+
+
+
+import org.springframework.web.multipart.MultipartFile;
+
+
+
+
+
+
+
+@Service
+
+
+
+@Transactional
+
+
+
+public class StaffUserService {
+
+
+
+
+
+
+
+    private final StaffUserRepository staffUserRepository;
+
+
+
+    private final CustomerRepository customerRepository;
+
+
+
+    private final PasswordEncoder passwordEncoder;
+
+
+
+    private final S3StorageService storageService;
+
+
+
+
+
+
+
+    public StaffUserService(
+
+
+
+            StaffUserRepository staffUserRepository,
+
+
+
+            CustomerRepository customerRepository,
+
+
+
+            PasswordEncoder passwordEncoder,
+
+
+
+            S3StorageService storageService) {
+
+
+
+
+
+
+
+        this.staffUserRepository = staffUserRepository;
+
+
+
+        this.customerRepository = customerRepository;
+
+
+
+        this.passwordEncoder = passwordEncoder;
+
+
+
+        this.storageService = storageService;
+
+
+
+    }
+
+
+
+
+
+
+
+    public StaffProfileResponse create(
+
+
+
+            StaffCreateRequest request) {
+
+
+
+        String email = request.email().toLowerCase();
+
+
+
+
+
+
+
+        validateEmailNotUsed(email);
+
+
+
+
+
+
+
+        StaffUser staffUser = new StaffUser(
+
+
+
+                request.fullName(),
+
+
+
+                email,
+
+
+
+                request.address(),
+
+
+
+                passwordEncoder.encode(request.password()));
+
+
+
+
+
+
+
+        try {
+
+
+
+            return toResponse(
+
+
+
+                    staffUserRepository.save(staffUser));
+
+
+
+        } catch (DataIntegrityViolationException exception) {
+
+
+
+            throw new DuplicateEmailException(email, exception);
+
+
+
+        } catch (RuntimeException exception) {
+
+
+
+            throw new InfrastructureException(
+
+
+
+                    "STAFF_USER_CREATE_FAILED",
+
+
+
+                    "Unable to create staff user",
+
+
+
+                    exception);
+
+
+
+        }
+
+
+
+    }
+
+
+
+
+
+
+
+    public StaffProfileResponse uploadProfilePicture(
+
+
+
+            UUID id,
+
+
+
+            MultipartFile file) {
+
+
+
+        try {
+
+
+
+            StaffUser staffUser = find(id);
+
+
+
+
+
+
+
+            if (file == null || file.isEmpty()) {
+
+
+
+                throw new ValidationException(
+
+
+
+                        "PROFILE_PICTURE_REQUIRED",
+
+
+
+                        "Profile picture file cannot be empty");
+
+
+
+            }
+
+
+
+
+
+
+
+            String oldS3Key =
+
+
+
+                    staffUser.getProfilePictureS3Key();
+
+
+
+
+
+
+
+            String newS3Key =
+
+
+
+                    storageService.upload(
+
+
+
+                            file,
+
+
+
+                            "profile-pictures",
+
+
+
+                            staffUser.getId());
+
+
+
+
+
+
+
+            staffUser.updateProfilePictureS3Key(
+
+
+
+                    newS3Key);
+
+
+
+
+
+
+
+            if (oldS3Key != null
+
+
+
+                    && !oldS3Key.isBlank()) {
+
+
+
+
+
+
+
+                storageService.delete(oldS3Key);
+
+
+
+            }
+
+
+
+            return toResponse(staffUser);
+
+
+
+        } catch (ValidationException
+
+
+
+                 | StaffUserNotFoundException
+
+
+
+                 | DuplicateEmailException exception) {
+
+
+
+            throw exception;
+
+
+
+        } catch (RuntimeException exception) {
+
+
+
+            throw new InfrastructureException(
+
+
+
+                    "PROFILE_PICTURE_UPLOAD_FAILED",
+
+
+
+                    "Unable to upload profile picture",
+
+
+
+                    exception);
+
+
+
+        }
+
+
+
+    }
+
+
+
+
+
+
+
+    public void deleteProfilePicture(UUID id) {
+
+
+
+        try {
+
+
+
+            StaffUser staffUser = find(id);
+
+
+
+
+
+
+
+            String s3Key =
+
+
+
+                    staffUser.getProfilePictureS3Key();
+
+
+
+
+
+
+
+            if (s3Key != null && !s3Key.isBlank()) {
+
+
+
+                storageService.delete(s3Key);
+
+
+
+            }
+
+
+
+
+
+
+
+            staffUser.updateProfilePictureS3Key(null);
+
+
+
+        } catch (StaffUserNotFoundException exception) {
+
+
+
+            throw exception;
+
+
+
+        } catch (RuntimeException exception) {
+
+
+
+            throw new InfrastructureException(
+
+
+
+                    "PROFILE_PICTURE_DELETE_FAILED",
+
+
+
+                    "Unable to delete profile picture",
+
+
+
+                    exception);
+
+
+
+        }
+
+
+
+    }
+
+
+
+
+
+
+
+    @Transactional(readOnly = true)
+
+
+
+    public List list() {
+
+
+
+        return staffUserRepository.findAll()
+
+
+
+                .stream()
+
+
+
+                .map(this::toResponse)
+
+
+
+                .toList();
+
+
+
+    }
+
+
+
+
+
+
+
+    @Transactional(readOnly = true)
+
+
+
+    public StaffProfileResponse get(UUID id) {
+
+
+
+        return toResponse(find(id));
+
+
+
+    }
+
+
+
+
+
+
+
+    public StaffProfileResponse update(
+
+
+
+            UUID id,
+
+
+
+            StaffUpdateRequest request) {
+
+
+
+        try {
+
+
+
+            StaffUser staffUser = find(id);
+
+
+
+
+
+
+
+            String email =
+
+
+
+                    request.email().toLowerCase();
+
+
+
+
+
+
+
+            boolean emailUsedByAnotherStaff =
+
+
+
+                    staffUserRepository
+
+
+
+                            .findByEmailIgnoreCase(email)
+
+
+
+                            .filter(existing ->
+
+
+
+                                    !existing.getId().equals(id))
+
+
+
+                            .isPresent();
+
+
+
+
+
+
+
+            boolean emailUsedByCustomer =
+
+
+
+                    customerRepository
+
+
+
+                            .existsByEmailIgnoreCase(email);
+
+
+
+
+
+
+
+            if (emailUsedByAnotherStaff
+
+
+
+                    || emailUsedByCustomer) {
+
+
+
+
+
+
+
+                throw new DuplicateEmailException(email);
+
+
+
+            }
+
+
+
+
+
+
+
+            String passwordHash = null;
+
+
+
+
+
+
+
+            if (request.password() != null
+
+
+
+                    && !request.password().isBlank()) {
+
+
+
+
+
+
+
+                passwordHash =
+
+
+
+                        passwordEncoder.encode(
+
+
+
+                                request.password());
+
+
+
+            }
+
+
+
+
+
+
+
+            staffUser.update(
+
+
+
+                    request.fullName(),
+
+
+
+                    email,
+
+
+
+                    request.address(),
+
+
+
+                    passwordHash);
+
+
+
+
+
+
+
+            return toResponse(staffUser);
+
+
+
+        } catch (DuplicateEmailException
+
+
+
+                 | StaffUserNotFoundException exception) {
+
+
+
+            throw exception;
+
+
+
+        } catch (DataIntegrityViolationException exception) {
+
+
+
+            throw new DuplicateEmailException(
+
+
+
+                    request.email().toLowerCase(),
+
+
+
+                    exception);
+
+
+
+        } catch (RuntimeException exception) {
+
+
+
+            throw new InfrastructureException(
+
+
+
+                    "STAFF_USER_UPDATE_FAILED",
+
+
+
+                    "Unable to update staff user",
+
+
+
+                    exception);
+
+
+
+        }
+
+
+
+    }
+
+
+
+
+
+
+
+    public void delete(UUID id) {
+
+
+
+        try {
+
+
+
+            StaffUser staffUser = find(id);
+
+
+
+
+
+
+
+            String s3Key =
+
+
+
+                    staffUser.getProfilePictureS3Key();
+
+
+
+
+
+
+
+            if (s3Key != null
+
+
+
+                    && !s3Key.isBlank()) {
+
+
+
+
+
+
+
+                storageService.delete(s3Key);
+
+
+
+            }
+
+
+
+            staffUserRepository.delete(staffUser);
+
+
+
+        } catch (StaffUserNotFoundException exception) {
+
+
+
+            throw exception;
+
+
+
+        } catch (RuntimeException exception) {
+
+
+
+            throw new InfrastructureException(
+
+
+
+                    "STAFF_USER_DELETE_FAILED",
+
+
+
+                    "Unable to delete staff user",
+
+
+
+                    exception);
+
+
+
+        }
+
+
+
+    }
+
+
+
+
+
+
+
+    private StaffUser find(UUID id) {
+
+
+
+
+
+
+
+        return staffUserRepository.findById(id)
+
+
+
+                .orElseThrow(() ->
+
+
+
+                        new StaffUserNotFoundException(id));
+
+
+
+    }
+
+
+
+
+
+
+
+    private void validateEmailNotUsed(
+
+
+
+            String email) {
+
+
+
+
+
+
+
+        if (staffUserRepository
+
+
+
+                .existsByEmailIgnoreCase(email)
+
+
+
+                || customerRepository
+
+
+
+                .existsByEmailIgnoreCase(email)) {
+
+
+
+
+
+
+
+            throw new DuplicateEmailException(email);
+
+
+
+        }
+
+
+
+    }
+
+
+
+
+
+
+
+    private StaffProfileResponse toResponse(
+
+
+
+            StaffUser staffUser) {
+
+
+
+
+
+
+
+        String profilePictureUrl = null;
+
+
+
+
+
+
+
+        String s3Key =
+
+
+
+                staffUser.getProfilePictureS3Key();
+
+
+
+
+
+
+
+        if (s3Key != null
+
+
+
+                && !s3Key.isBlank()) {
+
+
+
+
+
+
+
+            PresignedUrlResponse download =
+
+
+
+                    storageService
+
+
+
+                            .getPresignedDownloadUrl(
+
+
+
+                                    s3Key);
+
+
+
+
+
+
+
+            profilePictureUrl =
+
+
+
+                    download.url();
+
+
+
+        }
+
+
+
+
+
+
+
+        return new StaffProfileResponse(
+
+
+
+                staffUser.getId(),
+
+
+
+                staffUser.getFullName(),
+
+
+
+                staffUser.getEmail(),
+
+
+
+                staffUser.getAddress(),
+
+
+
+                profilePictureUrl);
+
+
+
+    }
+
+
+
+}
+
+explain the codes how the flows works and how method calls service layers and how exception catches the error which tables from db are used are multiple tables connected with outeachother from these explain all also mainly the functions and codes i gave in detail
+also explain how the annonations work  all of it
