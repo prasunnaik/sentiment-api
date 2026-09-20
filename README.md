@@ -1,2400 +1,751 @@
-package com.insurewise.policy.controller;
+package com.insurewise.framework.s3.annotation;
 
-import com.insurewise.common.security.JwtPrincipal;
-import com.insurewise.policy.dto.response.ApplicationDocumentResponse;
-import com.insurewise.policy.service.ApplicationDocumentService;
-import java.util.List;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface EnableS3Delete {
+}
+package com.insurewise.framework.s3.annotation;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface EnableS3Upload {
+    String folder() default "uploads";
+}
+package com.insurewise.framework.s3.annotation;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface S3FileField {
+    String folder() default "uploads";
+}
+package com.insurewise.framework.s3.aspect;
+
+import com.insurewise.framework.s3.annotation.EnableS3Delete;
+import com.insurewise.framework.s3.annotation.S3FileField;
+import com.insurewise.framework.s3.service.S3FileService;
+import java.lang.reflect.Field;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.springframework.stereotype.Component;
+
+@Aspect
+@Component
+public class S3DeleteAspect {
+
+    private final S3FileService fileService;
+
+    public S3DeleteAspect(S3FileService fileService) {
+        this.fileService = fileService;
+    }
+
+    @Around("@annotation(enableS3Delete)")
+    public Object delete(
+            ProceedingJoinPoint joinPoint,
+            EnableS3Delete enableS3Delete) throws Throwable {
+
+        for (Object argument : joinPoint.getArgs()) {
+            if (argument == null) {
+                continue;
+            }
+
+            String key = findS3FileField(argument);
+            if (key != null && !key.isBlank()) {
+                fileService.delete(key);
+            }
+        }
+
+        return joinPoint.proceed();
+    }
+
+    private String findS3FileField(Object target)
+            throws IllegalAccessException {
+
+        for (Field field : target.getClass().getDeclaredFields()) {
+            if (!field.isAnnotationPresent(S3FileField.class)
+                    || field.getType() != String.class) {
+                continue;
+            }
+
+            field.setAccessible(true);
+            Object value = field.get(target);
+            return value instanceof String string ? string : null;
+        }
+
+        return null;
+    }
+}
+package com.insurewise.framework.s3.aspect;
+
+import com.insurewise.framework.s3.annotation.EnableS3Upload;
+import com.insurewise.framework.s3.annotation.S3FileField;
+import com.insurewise.framework.s3.service.S3FileService;
+import java.lang.reflect.Field;
 import java.util.UUID;
-import org.springframework.http.MediaType;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
-@RestController
-@RequestMapping("/api/applications/{id}/documents")
-@PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF')")
-public class ApplicationDocumentController {
+@Aspect
+@Component
+public class S3UploadAspect {
 
-    private final ApplicationDocumentService service;
+    private final S3FileService fileService;
 
-    /**
-     * Creates the application document controller.
-     *
-     * @param service application document use cases
-     */
-    public ApplicationDocumentController(
-            ApplicationDocumentService service) {
-        this.service = service;
+    public S3UploadAspect(S3FileService fileService) {
+        this.fileService = fileService;
     }
 
-    /**
-     * Uploads a document for the current application.
-     *
-     * @param principal authenticated principal
-     * @param id application identifier
-     * @param file document file
-     * @return uploaded document
-     */
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ApplicationDocumentResponse upload(
-            @AuthenticationPrincipal JwtPrincipal principal,
-            @PathVariable UUID id,
-            @RequestPart("file") MultipartFile file) {
+    @Around("@annotation(enableS3Upload)")
+    public Object upload(
+            ProceedingJoinPoint joinPoint,
+            EnableS3Upload enableS3Upload) throws Throwable {
 
-        return service.uploadDocument(
-                principal,
-                id,
-                file);
+        MultipartFile file = null;
+        UUID ownerId = null;
+        Object targetFieldObject = null;
+
+        for (Object argument : joinPoint.getArgs()) {
+            if (argument instanceof MultipartFile multipartFile) {
+                file = multipartFile;
+            } else if (argument instanceof UUID uuid) {
+                ownerId = uuid;
+            } else if (argument != null) {
+                targetFieldObject = argument;
+            }
+        }
+
+        if (file != null && !file.isEmpty()) {
+            String key = fileService.upload(
+                    file,
+                    enableS3Upload.folder(),
+                    ownerId);
+
+            if (targetFieldObject != null) {
+                setS3FileField(targetFieldObject, key);
+            }
+        }
+
+        return joinPoint.proceed();
     }
 
-    /**
-     * Lists documents for the current application.
-     *
-     * @param principal authenticated principal
-     * @param id application identifier
-     * @return document responses
-     */
-    @GetMapping
-    public List<ApplicationDocumentResponse> list(
-            @AuthenticationPrincipal JwtPrincipal principal,
-            @PathVariable UUID id) {
+    private void setS3FileField(
+            Object target,
+            String key) throws IllegalAccessException {
 
-        return service.listDocuments(
-                principal,
-                id);
-    }
+        for (Field field : target.getClass().getDeclaredFields()) {
+            if (!field.isAnnotationPresent(S3FileField.class)
+                    || field.getType() != String.class) {
+                continue;
+            }
 
-    /**
-     * Deletes a document from the current application.
-     *
-     * @param principal authenticated principal
-     * @param id application identifier
-     * @param documentId document identifier
-     */
-    @DeleteMapping("/{documentId}")
-    public void delete(
-            @AuthenticationPrincipal JwtPrincipal principal,
-            @PathVariable UUID id,
-            @PathVariable UUID documentId) {
-
-        service.deleteDocument(
-                principal,
-                id,
-                documentId);
+            field.setAccessible(true);
+            field.set(target, key);
+            return;
+        }
     }
 }
-package com.insurewise.policy.controller;
+package com.insurewise.framework.s3.config;
 
-import com.insurewise.policy.dto.request.CategoryCreateRequest;
-import com.insurewise.policy.dto.request.CategoryUpdateRequest;
-import com.insurewise.policy.dto.response.CategoryResponse;
-import com.insurewise.policy.service.CategoryService;
-import jakarta.validation.Valid;
-import java.util.List;
-import java.util.UUID;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.insurewise.framework.s3.aspect.S3DeleteAspect;
+import com.insurewise.framework.s3.aspect.S3UploadAspect;
+import com.insurewise.framework.s3.controller.S3FileController;
+import com.insurewise.framework.s3.service.AwsS3FileService;
+import com.insurewise.framework.s3.service.DisabledS3FileService;
+import com.insurewise.framework.s3.service.S3FileService;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+
+@Configuration
+@Import({S3UploadAspect.class, S3DeleteAspect.class, S3FileController.class})
+@EnableConfigurationProperties(S3Properties.class)
+public class S3AutoConfiguration {
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = "ng.file-upload.s3",
+            name = "enabled",
+            havingValue = "true")
+    @ConditionalOnMissingBean
+    AmazonS3 amazonS3(S3Properties properties) {
+
+        AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard()
+                .withPathStyleAccessEnabled(properties.pathStyleAccessEnabled());
+
+        if (properties.endpoint() != null && !properties.endpoint().isBlank()) {
+            builder.withEndpointConfiguration(
+                    new EndpointConfiguration(
+                            properties.endpoint(),
+                            properties.region()));
+        } else {
+            builder.withRegion(properties.region());
+        }
+
+        if (properties.accessKey() != null
+                && !properties.accessKey().isBlank()
+                && properties.secretKey() != null
+                && !properties.secretKey().isBlank()) {
+            builder.withCredentials(
+                    new AWSStaticCredentialsProvider(
+                            new BasicAWSCredentials(
+                                    properties.accessKey(),
+                                    properties.secretKey())));
+        }
+
+        return builder.build();
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = "ng.file-upload.s3",
+            name = "enabled",
+            havingValue = "true")
+    @ConditionalOnMissingBean(S3FileService.class)
+    S3FileService awsS3FileService(
+            AmazonS3 amazonS3,
+            S3Properties properties) {
+        return new AwsS3FileService(amazonS3, properties);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = "ng.file-upload.s3",
+            name = "enabled",
+            havingValue = "false",
+            matchIfMissing = true)
+    @ConditionalOnMissingBean(S3FileService.class)
+    S3FileService disabledS3FileService() {
+        return new DisabledS3FileService();
+    }
+}
+package com.insurewise.framework.s3.config;
+
+import java.time.Duration;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+@ConfigurationProperties(prefix = "ng.file-upload.s3")
+public record S3Properties(
+        boolean enabled,
+        String bucketName,
+        String region,
+        String accessKey,
+        String secretKey,
+        String endpoint,
+        boolean pathStyleAccessEnabled,
+        String keyPrefix,
+        Download download) {
+
+    public record Download(boolean enabled) {
+    }
+
+    public Duration presignedUrlTtl() {
+        return Duration.ofMinutes(15);
+    }
+}
+package com.insurewise.framework.s3.controller;
+
+import com.insurewise.framework.s3.service.S3FileService;
+import com.insurewise.framework.s3.service.S3PresignedUrl;
+import java.util.Map;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/categories")
-public class CategoryController {
-    private final CategoryService service;
+@RequestMapping("/api/storage")
+@ConditionalOnProperty(
+        prefix = "ng.file-upload.s3.download",
+        name = "enabled",
+        havingValue = "true")
+public class S3FileController {
+
+    private final S3FileService fileService;
 
     /**
-     * Creates the category controller.
+     * Creates the S3 file controller.
      *
-     * @param service category use cases
+     * @param fileService S3 file access service
      */
-    public CategoryController(CategoryService service) {
-        this.service = service;
+    public S3FileController(S3FileService fileService) {
+        this.fileService = fileService;
     }
 
     /**
-     * Creates a category record.
+     * Generates a presigned download URL for the provided object key.
      *
-     * @param request category payload
-     * @return created category
+     * @param key S3 object key
+     * @return presigned download metadata
      */
-    @PostMapping
+    @GetMapping("/download-url")
     @PreAuthorize("hasRole('STAFF')")
-    public CategoryResponse create(
-            @Valid @RequestBody CategoryCreateRequest request) {
-        return service.create(request);
-    }
+    public ResponseEntity<Map<String, Object>> downloadUrl(
+            @RequestParam String key) {
 
-    /**
-     * Lists all categories.
-     *
-     * @return category responses
-     */
-    @GetMapping
-    @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF')")
-    public List<CategoryResponse> list() {
-        return service.list();
-    }
+        S3PresignedUrl response =
+                fileService.getPresignedDownloadUrl(key);
 
-    /**
-     * Updates a category record.
-     *
-     * @param id category identifier
-     * @param request category update payload
-     * @return updated category
-     */
-    @PutMapping("/{id}")
-    @PreAuthorize("hasRole('STAFF')")
-    public CategoryResponse update(
-            @PathVariable UUID id,
-            @Valid @RequestBody CategoryUpdateRequest request) {
-        return service.update(id, request);
-    }
-
-    /**
-     * Deletes a category record.
-     *
-     * @param id category identifier
-     */
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('STAFF')")
-    public void delete(@PathVariable UUID id) {
-        service.delete(id);
+        return ResponseEntity.ok(Map.of(
+                "url", response.url(),
+                "expiresAt", response.expiresAt()));
     }
 }
-package com.insurewise.policy.controller;
+package com.insurewise.framework.s3.exception;
 
-import com.insurewise.policy.dto.response.DashboardMetricsResponse;
-import com.insurewise.policy.service.DashboardService;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-
-@RestController
-@RequestMapping("/api/dashboard")
-@PreAuthorize("hasRole('STAFF')")
-public class DashboardController {
-    private final DashboardService service;
-
-    /**
-     * Creates the dashboard controller.
-     *
-     * @param service dashboard metrics service
-     */
-    public DashboardController(DashboardService service) {
-        this.service = service;
+public class S3FileStorageException extends RuntimeException {
+    public S3FileStorageException(String message) {
+        super(message);
     }
 
-    /**
-     * Loads dashboard metrics.
-     *
-     * @return dashboard metrics
-     */
-    @GetMapping("/metrics")
-    public DashboardMetricsResponse metrics() {
-        return service.getMetrics();
+    public S3FileStorageException(String message, Throwable cause) {
+        super(message, cause);
     }
 }
-package com.insurewise.policy.controller;
+package com.insurewise.framework.s3.exception;
 
-import com.insurewise.common.security.JwtPrincipal;
-import com.insurewise.policy.dto.request.PolicyApplicationCreateRequest;
-import com.insurewise.policy.dto.response.*;
-import com.insurewise.policy.entity.ApplicationStatus;
-import com.insurewise.policy.service.PolicyApplicationService;
-import jakarta.validation.Valid;
-import java.util.List;
+public class S3FileValidationException extends RuntimeException {
+    public S3FileValidationException(String message) {
+        super(message);
+    }
+}
+package com.insurewise.framework.s3.service;
+
+import com.amazonaws.HttpMethod;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.DeleteObjectRequest;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
+import com.insurewise.framework.s3.config.S3Properties;
+import com.insurewise.framework.s3.exception.S3FileStorageException;
+import com.insurewise.framework.s3.exception.S3FileValidationException;
+import java.io.IOException;
+import java.net.URL;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
+import java.util.Set;
 import java.util.UUID;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
-@RestController
-@RequestMapping("/api/applications")
-public class PolicyApplicationController {
-    private final PolicyApplicationService service;
+public class AwsS3FileService implements S3FileService {
+
+    private static final long MAX_FILE_SIZE = 10L * 1024L * 1024L;
+    private static final Set<String> IMAGE_TYPES = Set.of(
+            "image/jpeg",
+            "image/png",
+            "image/webp");
+    private static final Set<String> DOCUMENT_TYPES = Set.of(
+            "application/pdf",
+            "image/jpeg",
+            "image/png",
+            "image/webp");
+
+    private final AmazonS3 amazonS3;
+    private final S3Properties properties;
 
     /**
-     * Creates the policy application controller.
+     * Creates the AWS-backed S3 file service.
      *
-     * @param service application use cases
+     * @param amazonS3 S3 client
+     * @param properties S3 configuration properties
      */
-    public PolicyApplicationController(
-            PolicyApplicationService service) {
-        this.service = service;
-    }
-
-    /**
-     * Creates a policy application for the authenticated customer.
-     *
-     * @param principal authenticated principal
-     * @param request application payload
-     * @return created application
-     */
-    @PostMapping
-    @PreAuthorize("hasRole('CUSTOMER')")
-    public PolicyApplicationResponse create(
-            @AuthenticationPrincipal JwtPrincipal principal,
-            @Valid @RequestBody PolicyApplicationCreateRequest request) {
-        return service.createApplication(principal.userId(), request);
+    public AwsS3FileService(
+            AmazonS3 amazonS3,
+            S3Properties properties) {
+        this.amazonS3 = amazonS3;
+        this.properties = properties;
     }
 
     /**
-     * Lists applications visible to the authenticated principal.
+     * Uploads a multipart file to S3.
      *
-     * @param principal authenticated principal
-     * @param status optional status filter
-     * @return application responses
+     * @param file file content
+     * @param folder destination folder
+     * @param ownerId owner identifier
+     * @return stored object key
      */
-    @GetMapping
-    @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF')")
-    public List<PolicyApplicationResponse> list(
-            @AuthenticationPrincipal JwtPrincipal principal,
-            @RequestParam(required = false) ApplicationStatus status) {
-        return service.listApplications(principal, status);
+    @Override
+    public String upload(
+            MultipartFile file,
+            String folder,
+            UUID ownerId) {
+
+        System.out.println("========== S3 DEBUG ==========");
+        System.out.println("Bucket  = [" + properties.bucketName() + "]");
+        System.out.println("Region  = [" + properties.region() + "]");
+        System.out.println("Endpoint = [" + properties.endpoint() + "]");
+        System.out.println("PathStyle = [" + properties.pathStyleAccessEnabled() + "]");
+        System.out.println("===============================");
+
+        validate(file, folder);
+
+        String originalName = file.getOriginalFilename();
+        if (originalName == null || originalName.isBlank()) {
+            originalName = "file";
+        }
+
+        String extension = "";
+        int dot = originalName.lastIndexOf('.');
+        if (dot >= 0) {
+            extension = originalName.substring(dot);
+        }
+
+        String key = buildKey(folder, ownerId, UUID.randomUUID() + extension);
+
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentLength(file.getSize());
+        metadata.setContentType(file.getContentType());
+
+        try {
+            amazonS3.putObject(
+                    new PutObjectRequest(
+                            properties.bucketName(),
+                            key,
+                            file.getInputStream(),
+                            metadata));
+            return key;
+        } catch (IOException | RuntimeException exception) {
+            throw new S3FileStorageException(
+                    "Unable to upload file to S3",
+                    exception);
+        }
+
     }
 
     /**
-     * Loads an application visible to the authenticated principal.
+     * Uploads generated bytes to S3.
      *
-     * @param principal authenticated principal
-     * @param id application identifier
-     * @return application details
+     * @param content file bytes
+     * @param fileName logical file name
+     * @param contentType content type
+     * @param folder destination folder
+     * @param ownerId owner identifier
+     * @return stored object key
      */
-    @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF')")
-    public PolicyApplicationResponse get(
-            @AuthenticationPrincipal JwtPrincipal principal,
-            @PathVariable UUID id) {
-        return service.getApplication(principal, id);
-    }
-
-    /**
-     * Approves an application.
-     *
-     * @param principal authenticated principal
-     * @param id application identifier
-     * @return decision response
-     */
-    @PutMapping("/{id}/approve")
-    @PreAuthorize("hasRole('STAFF')")
-    public ApplicationDecisionResponse approve(
-            @AuthenticationPrincipal JwtPrincipal principal,
-            @PathVariable UUID id) {
-        return service.approveApplication(principal.userId(), id);
-    }
-
-    /**
-     * Rejects an application.
-     *
-     * @param principal authenticated principal
-     * @param id application identifier
-     * @return decision response
-     */
-    @PutMapping("/{id}/reject")
-    @PreAuthorize("hasRole('STAFF')")
-    public ApplicationDecisionResponse reject(
-            @AuthenticationPrincipal JwtPrincipal principal,
-            @PathVariable UUID id) {
-        return service.rejectApplication(principal.userId(), id);
-    }
-}
-package com.insurewise.policy.controller;
-
-import com.insurewise.policy.dto.request.PolicyCreateRequest;
-import com.insurewise.policy.dto.request.PolicyUpdateRequest;
-import com.insurewise.policy.dto.response.PolicyResponse;
-import com.insurewise.policy.service.PolicyService;
-import jakarta.validation.Valid;
-import java.util.List;
-import java.util.UUID;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-
-@RestController
-@RequestMapping("/api/policies")
-public class PolicyController {
-    private final PolicyService service;
-
-    /**
-     * Creates the policy controller.
-     *
-     * @param service policy use cases
-     */
-    public PolicyController(PolicyService service) {
-        this.service = service;
-    }
-
-    /**
-     * Lists policies that are visible to customers and staff.
-     *
-     * @return active policies
-     */
-    @GetMapping
-    @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF')")
-    public List<PolicyResponse> listActive() {
-        return service.listActive();
-    }
-
-    /**
-     * Loads a policy by identifier.
-     *
-     * @param id policy identifier
-     * @return policy details
-     */
-    @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF')")
-    public PolicyResponse get(@PathVariable UUID id) {
-        return service.get(id);
-    }
-
-    /**
-     * Creates a policy record.
-     *
-     * @param request policy payload
-     * @return created policy
-     */
-    @PostMapping
-    @PreAuthorize("hasRole('STAFF')")
-    public PolicyResponse create(
-            @Valid @RequestBody PolicyCreateRequest request) {
-        return service.create(request);
-    }
-
-    /**
-     * Updates a policy record.
-     *
-     * @param id policy identifier
-     * @param request policy update payload
-     * @return updated policy
-     */
-    @PutMapping("/{id}")
-    @PreAuthorize("hasRole('STAFF')")
-    public PolicyResponse update(
-            @PathVariable UUID id,
-            @Valid @RequestBody PolicyUpdateRequest request) {
-        return service.update(id, request);
-    }
-
-    /**
-     * Deletes a policy record.
-     *
-     * @param id policy identifier
-     */
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('STAFF')")
-    public void delete(@PathVariable UUID id) {
-        service.delete(id);
-    }
-}
-package com.insurewise.policy.dto.request;
-
-import com.insurewise.policy.entity.CategoryStatus;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
-
-public record CategoryCreateRequest(
-        @NotBlank
-        @Size(max = 80)
-        String name,
-
-        @NotBlank
-        @Size(max = 500)
-        String description,
-
-        @NotNull
-        CategoryStatus status
-) {
-}
-package com.insurewise.policy.dto.request;
-
-import com.insurewise.policy.entity.CategoryStatus;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
-
-public record CategoryUpdateRequest(
-        @NotBlank
-        @Size(max = 80)
-        String name,
-
-        @NotBlank
-        @Size(max = 500)
-        String description,
-
-        @NotNull
-        CategoryStatus status
-) {
-}
-package com.insurewise.policy.dto.request;
-
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.insurewise.policy.entity.CoverageType;
-import com.insurewise.policy.entity.NomineeRelationship;
-import jakarta.validation.constraints.*;
-import java.time.LocalDate;
-import java.util.UUID;
-
-public record PolicyApplicationCreateRequest(
-        @JsonProperty("policy_id")
-        @NotNull
-        UUID policyId,
-
-        @JsonProperty("coverage_type")
-        @NotNull
-        CoverageType coverageType,
-
-        @JsonProperty("date_of_birth")
-        @NotNull
-        @Past
-        LocalDate dateOfBirth,
-
-        @NotBlank
-        @Size(max = 500)
-        String address,
-
-        @JsonProperty("preferred_start_date")
-        @FutureOrPresent
-        LocalDate preferredStartDate,
-
-        @JsonProperty("nominee_name")
-        @Size(max = 120)
-        String nomineeName,
-
-        @JsonProperty("nominee_relationship")
-        NomineeRelationship nomineeRelationship
-) {
-}
-package com.insurewise.policy.dto.request;
-
-import com.insurewise.policy.entity.PolicyStatus;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
-import java.util.UUID;
-
-public record PolicyCreateRequest(
-        @NotBlank
-        @Size(max = 120)
-        String name,
-
-        @NotNull
-        UUID categoryId,
-
-        @NotNull
-        @DecimalMin("0.01")
-        BigDecimal coverageAmount,
-
-        @NotNull
-        @DecimalMin("0.01")
-        BigDecimal premiumAmount,
-
-        @NotBlank
-        @Size(max = 40)
-        String durationLabel,
-
-        @NotNull
-        PolicyStatus status
-) {
-}
-package com.insurewise.policy.dto.request;
-
-import com.insurewise.policy.entity.PolicyStatus;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
-import java.util.UUID;
-
-public record PolicyUpdateRequest(
-        @NotBlank
-        @Size(max = 120)
-        String name,
-
-        @NotNull
-        UUID categoryId,
-
-        @NotNull
-        @DecimalMin("0.01")
-        BigDecimal coverageAmount,
-
-        @NotNull
-        @DecimalMin("0.01")
-        BigDecimal premiumAmount,
-
-        @NotBlank
-        @Size(max = 40)
-        String durationLabel,
-
-        @NotNull
-        PolicyStatus status
-) {
-}
-package com.insurewise.policy.dto.response;
-
-import com.insurewise.policy.entity.ApplicationStatus;
-import java.time.LocalDate;
-import java.util.UUID;
-
-public record ApplicationDecisionResponse(
-        UUID applicationId,
-        String applicationCode,
-        ApplicationStatus status,
-        LocalDate startDate,
-        LocalDate endDate,
-        UUID decidedBy
-) {
-}
-package com.insurewise.policy.dto.response;
-
-import com.insurewise.common.dto.PresignedUrlResponse;
-import java.util.UUID;
-
-public record ApplicationDocumentResponse(
-        UUID id,
-        UUID applicationId,
-        String fileName,
-        String contentType,
-        PresignedUrlResponse download,
-        UUID uploadedBy
-) {
-}
-package com.insurewise.policy.dto.response;
-
-import com.insurewise.policy.entity.CategoryStatus;
-
-import java.util.UUID;
-
-public record CategoryResponse(
-        UUID id,
-        String name,
-        String description,
-        CategoryStatus status
-) {
-}
-package com.insurewise.policy.dto.response;
-
-public record DashboardMetricsResponse(
-        long totalCustomers,
-        long totalStaff,
-        long totalCategories,
-        long totalPolicies,
-        long activePolicies,
-        long totalApplications,
-        long pendingApplications,
-        long activeApplications,
-        long totalClaims,
-        long pendingClaims,
-        long totalPayments,
-        long successfulPayments
-) {
-}
-package com.insurewise.policy.dto.response;
-
-import com.insurewise.policy.entity.*;
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.UUID;
-
-public record PolicyApplicationResponse(
-        UUID id,
-        String applicationCode,
-        UUID customerId,
-        UUID policyId,
-        String policyName,
-        CoverageType coverageType,
-        BigDecimal coverageAmount,
-        BigDecimal premiumAmount,
-        LocalDate dateOfBirth,
-        String address,
-        LocalDate preferredStartDate,
-        String nomineeName,
-        NomineeRelationship nomineeRelationship,
-        LocalDate startDate,
-        LocalDate endDate,
-        ApplicationStatus status,
-        UUID decidedBy,
-        LocalDateTime decidedAt
-) {
-}
-package com.insurewise.policy.dto.response;
-
-import com.insurewise.policy.entity.PolicyStatus;
-import java.math.BigDecimal;
-import java.util.UUID;
-
-public record PolicyResponse(
-        UUID id,
-        String name,
-        UUID categoryId,
-        String categoryName,
-        BigDecimal coverageAmount,
-        BigDecimal premiumAmount,
-        String durationLabel,
-        PolicyStatus status
-) {
-}
-package com.insurewise.policy.entity;
-
-import jakarta.persistence.*;
-import java.util.UUID;
-
-@Entity
-@Table(name = "application_documents")
-public class ApplicationDocument {
-    @Id
-    @GeneratedValue
-    private UUID id;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "policy_application_id", nullable = false)
-    private PolicyApplication policyApplication;
-
-    @Column(name = "file_name", nullable = false, length = 255)
-    private String fileName;
-
-    @Column(name = "content_type", length = 100)
-    private String contentType;
-
-    @Column(name = "s3_key", nullable = false, length = 600)
-    private String s3Key;
-
-    @Column(name = "uploaded_by", nullable = false)
-    private UUID uploadedBy;
-
-    protected ApplicationDocument() {
-    }
-
-    public ApplicationDocument(
-            PolicyApplication policyApplication,
+    @Override
+    public String uploadGenerated(
+            byte[] content,
             String fileName,
             String contentType,
-            String s3Key,
-            UUID uploadedBy) {
-        this.policyApplication = policyApplication;
-        this.fileName = fileName;
-        this.contentType = contentType;
-        this.s3Key = s3Key;
-        this.uploadedBy = uploadedBy;
-    }
-
-    public UUID getId() {
-        return id;
-    }
-
-    public PolicyApplication getPolicyApplication() {
-        return policyApplication;
-    }
-
-    public String getFileName() {
-        return fileName;
-    }
-
-    public String getContentType() {
-        return contentType;
-    }
-
-    public String getS3Key() {
-        return s3Key;
-    }
-
-    public UUID getUploadedBy() {
-        return uploadedBy;
-    }
-}
-package com.insurewise.policy.entity;
-
-public enum ApplicationStatus {
-    PENDING,
-    ACTIVE,
-    REJECTED,
-    EXPIRED
-}
-package com.insurewise.policy.entity;
-
-import jakarta.persistence.*;
-import java.util.UUID;
-
-@Entity
-@Table(name = "categories")
-public class Category {
-    @Id
-    @GeneratedValue
-    private UUID id;
-
-    @Column(nullable = false, length = 80)
-    private String name;
-
-    @Column(nullable = false, length = 500)
-    private String description;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private CategoryStatus status;
-
-    protected Category() {
-    }
-
-    public Category(String name, String description, CategoryStatus status) {
-        this.name = name;
-        this.description = description;
-        this.status = status;
-    }
-
-    public void update(
-            String name,
-            String description,
-            CategoryStatus status) {
-        this.name = name;
-        this.description = description;
-        this.status = status;
-    }
-
-    public UUID getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public CategoryStatus getStatus() {
-        return status;
-    }
-}
-package com.insurewise.policy.entity;
-
-public enum CategoryStatus {
-    ACTIVE,
-    INACTIVE
-}
-package com.insurewise.policy.entity;
-
-public enum CoverageType {
-    SINGLE,
-    GROUP
-}
-package com.insurewise.policy.entity;
-
-public enum NomineeRelationship {
-    SPOUSE,
-    PARENT,
-    CHILD,
-    SIBLING,
-    OTHER
-}
-package com.insurewise.policy.entity;
-
-import jakarta.persistence.*;
-import java.math.BigDecimal;
-import java.util.UUID;
-
-@Entity
-@Table(name = "policies")
-public class Policy {
-    @Id
-    @GeneratedValue
-    private UUID id;
-
-    @Column(nullable = false, length = 120)
-    private String name;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "category_id", nullable = false)
-    private Category category;
-
-    @Column(name = "coverage_amount", nullable = false, precision = 14, scale = 2)
-    private BigDecimal coverageAmount;
-
-    @Column(name = "premium_amount", nullable = false, precision = 10, scale = 2)
-    private BigDecimal premiumAmount;
-
-    @Column(name = "duration_label", nullable = false, length = 40)
-    private String durationLabel;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private PolicyStatus status;
-
-    protected Policy() {
-    }
-
-    public Policy(
-            String name,
-            Category category,
-            BigDecimal coverageAmount,
-            BigDecimal premiumAmount,
-            String durationLabel,
-            PolicyStatus status) {
-        this.name = name;
-        this.category = category;
-        this.coverageAmount = coverageAmount;
-        this.premiumAmount = premiumAmount;
-        this.durationLabel = durationLabel;
-        this.status = status;
-    }
-
-    public void update(
-            String name,
-            Category category,
-            BigDecimal coverageAmount,
-            BigDecimal premiumAmount,
-            String durationLabel,
-            PolicyStatus status) {
-        this.name = name;
-        this.category = category;
-        this.coverageAmount = coverageAmount;
-        this.premiumAmount = premiumAmount;
-        this.durationLabel = durationLabel;
-        this.status = status;
-    }
-
-    public boolean isActiveForCustomer() {
-        return status == PolicyStatus.ACTIVE
-                && category.getStatus() == CategoryStatus.ACTIVE;
-    }
-
-    public UUID getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public Category getCategory() {
-        return category;
-    }
-
-    public BigDecimal getCoverageAmount() {
-        return coverageAmount;
-    }
-
-    public BigDecimal getPremiumAmount() {
-        return premiumAmount;
-    }
-
-    public String getDurationLabel() {
-        return durationLabel;
-    }
-
-    public PolicyStatus getStatus() {
-        return status;
-    }
-}
-package com.insurewise.policy.entity;
-
-import jakarta.persistence.*;
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.UUID;
-
-@Entity
-@Table(name = "policy_applications")
-public class PolicyApplication {
-    @Id
-    @GeneratedValue
-    private UUID id;
-
-    @Column(name = "application_code", nullable = false, unique = true, length = 40)
-    private String applicationCode;
-
-    @Column(name = "customer_id", nullable = false)
-    private UUID customerId;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "policy_id", nullable = false)
-    private Policy policy;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "coverage_type", nullable = false, length = 20)
-    private CoverageType coverageType;
-
-    @Column(name = "coverage_amount", nullable = false, precision = 14, scale = 2)
-    private BigDecimal coverageAmount;
-
-    @Column(name = "premium_amount", nullable = false, precision = 10, scale = 2)
-    private BigDecimal premiumAmount;
-
-    @Column(name = "date_of_birth", nullable = false)
-    private LocalDate dateOfBirth;
-
-    @Column(nullable = false, length = 500)
-    private String address;
-
-    @Column(name = "preferred_start_date")
-    private LocalDate preferredStartDate;
-
-    @Column(name = "nominee_name", length = 120)
-    private String nomineeName;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "nominee_relationship", length = 20)
-    private NomineeRelationship nomineeRelationship;
-
-    @Column(name = "start_date")
-    private LocalDate startDate;
-
-    @Column(name = "end_date")
-    private LocalDate endDate;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private ApplicationStatus status;
-
-    @Column(name = "decided_by")
-    private UUID decidedBy;
-
-    @Column(name = "decided_at")
-    private LocalDateTime decidedAt;
-
-    protected PolicyApplication() {
-    }
-
-    public PolicyApplication(
-            String applicationCode,
-            UUID customerId,
-            Policy policy,
-            CoverageType coverageType,
-            LocalDate dateOfBirth,
-            String address,
-            LocalDate preferredStartDate,
-            String nomineeName,
-            NomineeRelationship nomineeRelationship) {
-        this.applicationCode = applicationCode;
-        this.customerId = customerId;
-        this.policy = policy;
-        this.coverageType = coverageType;
-        this.coverageAmount = policy.getCoverageAmount();
-        this.premiumAmount = policy.getPremiumAmount();
-        this.dateOfBirth = dateOfBirth;
-        this.address = address;
-        this.preferredStartDate = preferredStartDate;
-        this.nomineeName = nomineeName;
-        this.nomineeRelationship = nomineeRelationship;
-        this.status = ApplicationStatus.PENDING;
-    }
-
-    public void approve(
-            UUID staffUserId,
-            LocalDate startDate,
-            LocalDate endDate) {
-        ensurePending();
-        this.status = ApplicationStatus.ACTIVE;
-        this.decidedBy = staffUserId;
-        this.decidedAt = LocalDateTime.now();
-        this.startDate = startDate;
-        this.endDate = endDate;
-    }
-
-    public void reject(UUID staffUserId) {
-        ensurePending();
-        this.status = ApplicationStatus.REJECTED;
-        this.decidedBy = staffUserId;
-        this.decidedAt = LocalDateTime.now();
-    }
-
-    private void ensurePending() {
-        if (status != ApplicationStatus.PENDING) {
-            throw new IllegalStateException(
-                    "Only pending applications can be decided");
+            String folder,
+            UUID ownerId) {
+
+        if (content == null || content.length == 0) {
+            throw new S3FileValidationException("File content cannot be empty");
+        }
+        if (content.length > MAX_FILE_SIZE) {
+            throw new S3FileValidationException("File size exceeds 10 MB");
+        }
+
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentLength(content.length);
+        metadata.setContentType(contentType == null || contentType.isBlank()
+                ? "application/octet-stream"
+                : contentType);
+
+        String safeName = fileName == null || fileName.isBlank()
+                ? "generated-file"
+                : fileName;
+        String key = buildKey(folder, ownerId, UUID.randomUUID() + "-" + safeName);
+
+        try {
+
+            amazonS3.putObject(
+                    new PutObjectRequest(
+                            properties.bucketName(),
+                            key,
+                            new java.io.ByteArrayInputStream(content),
+                            metadata));
+            return key;
+        } catch (RuntimeException exception) {
+            throw new S3FileStorageException(
+                    "Unable to upload generated file to S3",
+                    exception);
         }
     }
 
-    public boolean isOwnedBy(UUID customerId) {
-        return this.customerId.equals(customerId);
+    /**
+     * Generates a presigned download URL for the object key.
+     *
+     * @param s3Key object key
+     * @return presigned URL details
+     */
+    @Override
+    public S3PresignedUrl getPresignedDownloadUrl(String s3Key) {
+        if (s3Key == null || s3Key.isBlank()) {
+            throw new S3FileValidationException("S3 key cannot be empty");
+        }
+
+        Duration duration = properties.presignedUrlTtl();
+        Instant expiresAt = Instant.now().plus(duration);
+
+        try {
+            GeneratePresignedUrlRequest request =
+                    new GeneratePresignedUrlRequest(
+                            properties.bucketName(),
+                            s3Key)
+                            .withMethod(HttpMethod.GET)
+                            .withExpiration(Date.from(expiresAt));
+
+            URL url = amazonS3.generatePresignedUrl(request);
+            return new S3PresignedUrl(url.toString(), expiresAt);
+        } catch (RuntimeException exception) {
+            throw new S3FileStorageException(
+                    "Unable to generate S3 download URL",
+                    exception);
+        }
     }
-
-    public boolean isActive() {
-        return status == ApplicationStatus.ACTIVE;
-    }
-
-    public UUID getId() {
-        return id;
-    }
-
-    public String getApplicationCode() {
-        return applicationCode;
-    }
-
-    public UUID getCustomerId() {
-        return customerId;
-    }
-
-    public Policy getPolicy() {
-        return policy;
-    }
-
-    public CoverageType getCoverageType() {
-        return coverageType;
-    }
-
-    public BigDecimal getCoverageAmount() {
-        return coverageAmount;
-    }
-
-    public BigDecimal getPremiumAmount() {
-        return premiumAmount;
-    }
-
-    public LocalDate getDateOfBirth() {
-        return dateOfBirth;
-    }
-
-    public String getAddress() {
-        return address;
-    }
-
-    public LocalDate getPreferredStartDate() {
-        return preferredStartDate;
-    }
-
-    public String getNomineeName() {
-        return nomineeName;
-    }
-
-    public NomineeRelationship getNomineeRelationship() {
-        return nomineeRelationship;
-    }
-
-    public LocalDate getStartDate() {
-        return startDate;
-    }
-
-    public LocalDate getEndDate() {
-        return endDate;
-    }
-
-    public ApplicationStatus getStatus() {
-        return status;
-    }
-
-    public UUID getDecidedBy() {
-        return decidedBy;
-    }
-
-    public LocalDateTime getDecidedAt() {
-        return decidedAt;
-    }
-}
-package com.insurewise.policy.entity;
-
-public enum PolicyStatus {
-    DRAFT,
-    ACTIVE,
-    INACTIVE
-}
-package com.insurewise.policy.exception;
-
-import com.insurewise.common.exception.ResourceNotFoundException;
-import java.util.UUID;
-
-public class ApplicationDocumentNotFoundException
-        extends ResourceNotFoundException {
-
-    public ApplicationDocumentNotFoundException(UUID id) {
-        super(
-                "APPLICATION_DOCUMENT_NOT_FOUND",
-                "Application document not found: " + id);
-    }
-
-    public ApplicationDocumentNotFoundException(
-            UUID id,
-            Throwable cause) {
-        super(
-                "APPLICATION_DOCUMENT_NOT_FOUND",
-                "Application document not found: " + id,
-                cause);
-    }
-}
-package com.insurewise.policy.exception;
-
-import com.insurewise.common.exception.ResourceNotFoundException;
-import java.util.UUID;
-
-public class ApplicationNotFoundException extends ResourceNotFoundException {
-
-    public ApplicationNotFoundException(UUID id) {
-        super("APPLICATION_NOT_FOUND", "Policy application not found: " + id);
-    }
-
-    public ApplicationNotFoundException(
-            UUID id,
-            Throwable cause) {
-        super(
-                "APPLICATION_NOT_FOUND",
-                "Policy application not found: " + id,
-                cause);
-    }
-}
-package com.insurewise.policy.exception;
-
-import com.insurewise.common.exception.BusinessException;
-
-public class ApplicationStateException extends BusinessException {
-
-    public ApplicationStateException(String message) {
-        super("APPLICATION_STATE_INVALID", message);
-    }
-
-    public ApplicationStateException(
-            String message,
-            Throwable cause) {
-        super("APPLICATION_STATE_INVALID", message, cause);
-    }
-}
-package com.insurewise.policy.exception;
-
-import com.insurewise.common.exception.ResourceNotFoundException;
-import java.util.UUID;
-
-public class CategoryNotFoundException extends ResourceNotFoundException {
-
-    public CategoryNotFoundException(UUID id) {
-        super("CATEGORY_NOT_FOUND", "Category not found: " + id);
-    }
-
-    public CategoryNotFoundException(
-            UUID id,
-            Throwable cause) {
-        super("CATEGORY_NOT_FOUND", "Category not found: " + id, cause);
-    }
-}
-package com.insurewise.policy.exception;
-
-import com.insurewise.common.exception.BusinessException;
-
-public class DuplicatePendingApplicationException
-        extends BusinessException {
-
-    public DuplicatePendingApplicationException() {
-        super(
-                "DUPLICATE_PENDING_APPLICATION",
-                "A pending application already exists for this policy");
-    }
-
-    public DuplicatePendingApplicationException(Throwable cause) {
-        super(
-                "DUPLICATE_PENDING_APPLICATION",
-                "A pending application already exists for this policy",
-                cause);
-    }
-}
-package com.insurewise.policy.exception;
-
-import com.insurewise.common.exception.ResourceNotFoundException;
-import java.util.UUID;
-
-public class PolicyNotFoundException extends ResourceNotFoundException {
-
-    public PolicyNotFoundException(UUID id) {
-        super("POLICY_NOT_FOUND", "Policy not found: " + id);
-    }
-
-    public PolicyNotFoundException(
-            UUID id,
-            Throwable cause) {
-        super("POLICY_NOT_FOUND", "Policy not found: " + id, cause);
-    }
-}
-package com.insurewise.policy.repository;
-
-import com.insurewise.policy.entity.ApplicationDocument;
-import java.util.List;
-import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-public interface ApplicationDocumentRepository
-        extends JpaRepository<ApplicationDocument, UUID> {
 
     /**
-     * Lists documents for an application in descending identifier order.
+     * Deletes an object from S3 when the key is present.
      *
-     * @param policyApplicationId application identifier
-     * @return document list
+     * @param s3Key object key
      */
-    List<ApplicationDocument> findByPolicyApplicationIdOrderByIdDesc(
-            UUID policyApplicationId);
+    @Override
+    public void delete(String s3Key) {
+        if (s3Key == null || s3Key.isBlank()) {
+            return;
+        }
+
+        try {
+            amazonS3.deleteObject(
+                    new DeleteObjectRequest(
+                            properties.bucketName(),
+                            s3Key));
+        } catch (RuntimeException exception) {
+            throw new S3FileStorageException(
+                    "Unable to delete S3 object",
+                    exception);
+        }
+    }
+
+    /**
+     * Validates file constraints for the target folder.
+     *
+     * @param file file content
+     * @param folder destination folder
+     */
+    private void validate(MultipartFile file, String folder) {
+        if (file == null || file.isEmpty()) {
+            throw new S3FileValidationException("File cannot be empty");
+        }
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new S3FileValidationException("File size exceeds 10 MB");
+        }
+        if (file.getContentType() == null || file.getContentType().isBlank()) {
+            throw new S3FileValidationException("File content type is required");
+        }
+
+        String contentType = file.getContentType().toLowerCase();
+        String normalizedFolder = normalize(folder).toLowerCase();
+
+        if (normalizedFolder.contains("profile-pictures")
+                && !IMAGE_TYPES.contains(contentType)) {
+            throw new S3FileValidationException(
+                    "Profile picture must be JPEG, PNG, or WEBP");
+        }
+
+        if (normalizedFolder.contains("documents")
+                && !DOCUMENT_TYPES.contains(contentType)) {
+            throw new S3FileValidationException(
+                    "Document must be PDF, JPEG, PNG, or WEBP");
+        }
+    }
+
+    /**
+     * Builds a normalized storage key.
+     *
+     * @param folder destination folder
+     * @param ownerId owner identifier
+     * @param fileName final file name
+     * @return object key
+     */
+    private String buildKey(
+            String folder,
+            UUID ownerId,
+            String fileName) {
+
+        String prefix = normalize(properties.keyPrefix());
+        String normalizedFolder = normalize(folder);
+        String owner = ownerId == null ? "general" : ownerId.toString();
+
+        StringBuilder key = new StringBuilder();
+        if (!prefix.isBlank()) {
+            key.append(prefix).append('/');
+        }
+        if (!normalizedFolder.isBlank()) {
+            key.append(normalizedFolder).append('/');
+        }
+        key.append(owner).append('/').append(fileName);
+        return key.toString();
+    }
+
+    /**
+     * Removes leading and trailing slashes from a value.
+     *
+     * @param value input value
+     * @return normalized value
+     */
+    private String normalize(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().replaceAll("^/+|/+$", "");
+    }
 }
-package com.insurewise.policy.repository;
+package com.insurewise.framework.s3.service;
 
-import com.insurewise.policy.entity.Category;
+import com.insurewise.framework.s3.exception.S3FileStorageException;
 import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-public interface CategoryRepository extends JpaRepository<Category, UUID> {
-}
-package com.insurewise.policy.repository;
-
-import com.insurewise.policy.entity.ApplicationStatus;
-import com.insurewise.policy.entity.PolicyApplication;
-import java.util.List;
-import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-
-public interface PolicyApplicationRepository
-        extends JpaRepository<PolicyApplication, UUID> {
-
-    /**
-     * Lists applications for a customer in descending identifier order.
-     *
-     * @param customerId customer identifier
-     * @return application list
-     */
-    List<PolicyApplication> findByCustomerIdOrderByIdDesc(
-            UUID customerId);
-
-    /**
-     * Lists applications for a given status in descending identifier order.
-     *
-     * @param status application status
-     * @return application list
-     */
-    List<PolicyApplication> findByStatusOrderByIdDesc(
-            ApplicationStatus status);
-
-    /**
-     * Lists customer applications for a given status in descending identifier order.
-     *
-     * @param customerId customer identifier
-     * @param status application status
-     * @return application list
-     */
-    List<PolicyApplication> findByCustomerIdAndStatusOrderByIdDesc(
-            UUID customerId,
-            ApplicationStatus status);
-
-    /**
-     * Checks whether a pending application already exists for the customer and policy.
-     *
-     * @param customerId customer identifier
-     * @param policyId policy identifier
-     * @param status application status
-     * @return true when a matching application exists
-     */
-    boolean existsByCustomerIdAndPolicyIdAndStatus(
-            UUID customerId,
-            UUID policyId,
-            ApplicationStatus status);
-
-    /**
-     * Reads the next application code sequence value.
-     *
-     * @return next sequence value
-     */
-    @Query(
-            value = "select nextval('application_code_seq')",
-            nativeQuery = true)
-    Long nextApplicationCodeSequence();
-
-    /**
-     * Counts applications by status.
-     *
-     * @param status application status
-     * @return matching row count
-     */
-    long countByStatus(
-            com.insurewise.policy.entity.ApplicationStatus status);
-}
-package com.insurewise.policy.repository;
-
-import com.insurewise.policy.entity.Policy;
-import com.insurewise.policy.entity.PolicyStatus;
-import java.util.List;
-import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-public interface PolicyRepository extends JpaRepository<Policy, UUID> {
-    /**
-     * Lists policies by status in descending identifier order.
-     *
-     * @param status policy status
-     * @return policy list
-     */
-    List<Policy> findAllByStatusOrderByIdDesc(PolicyStatus status);
-
-    /**
-     * Counts policies by status.
-     *
-     * @param status policy status
-     * @return matching row count
-     */
-    long countByStatus(
-            com.insurewise.policy.entity.PolicyStatus status);
-}
-package com.insurewise.policy.service;
-
-import com.insurewise.common.dto.PresignedUrlResponse;
-import com.insurewise.common.exception.InfrastructureException;
-import com.insurewise.common.security.JwtPrincipal;
-import com.insurewise.common.security.JwtRole;
-import com.insurewise.common.service.S3StorageService;
-import com.insurewise.policy.dto.response.ApplicationDocumentResponse;
-import com.insurewise.policy.entity.ApplicationDocument;
-import com.insurewise.policy.entity.PolicyApplication;
-import com.insurewise.policy.exception.ApplicationNotFoundException;
-import com.insurewise.policy.repository.ApplicationDocumentRepository;
-import java.util.List;
-import java.util.UUID;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import com.insurewise.common.exception.InvalidFileException;
-import com.insurewise.policy.exception.ApplicationDocumentNotFoundException;
 
-@Service
-@Transactional
-public class ApplicationDocumentService {
-    private final ApplicationDocumentRepository documentRepository;
-    private final PolicyApplicationService applicationService;
-    private final S3StorageService storageService;
+public class DisabledS3FileService implements S3FileService {
 
     /**
-     * Creates the application document service.
+     * Builds the exception raised when S3 storage is disabled.
      *
-     * @param documentRepository document persistence access
-     * @param applicationService application lookup service
-     * @param storageService file storage service
+     * @return disabled-storage exception
      */
-    public ApplicationDocumentService(
-            ApplicationDocumentRepository documentRepository,
-            PolicyApplicationService applicationService,
-            S3StorageService storageService) {
-        this.documentRepository = documentRepository;
-        this.applicationService = applicationService;
-        this.storageService = storageService;
+    private S3FileStorageException disabled() {
+        return new S3FileStorageException(
+                "S3 storage is disabled. Set S3_ENABLED=true and configure S3.");
     }
 
     /**
-     * Uploads a document for an application.
+     * Upload is unavailable while S3 storage is disabled.
      *
-     * @param principal authenticated principal
-     * @param applicationId application identifier
-     * @param file document file
-     * @return uploaded document response
+     * @param file file content
+     * @param folder destination folder
+     * @param ownerId owner identifier
+     * @return never returns
      */
-    public ApplicationDocumentResponse uploadDocument(
-            JwtPrincipal principal,
-            UUID applicationId,
-            MultipartFile file) {
-        try {
-            PolicyApplication application =
-                    requireApplicationAccess(principal, applicationId);
-
-            if (file == null || file.isEmpty()) {
-                throw new InvalidFileException("A non-empty file is required");
-            }
-
-            String s3Key = storageService.upload(
-                    file,
-                    "application-documents",
-                    principal.userId());
-
-            ApplicationDocument document = documentRepository.save(
-                    new ApplicationDocument(
-                            application,
-                            file.getOriginalFilename() == null
-                                    ? "unnamed-file"
-                                    : file.getOriginalFilename(),
-                            file.getContentType(),
-                            s3Key,
-                            principal.userId()));
-
-            return toResponse(document);
-        } catch (ApplicationNotFoundException
-                 | InvalidFileException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            throw new InfrastructureException(
-                    "APPLICATION_DOCUMENT_UPLOAD_FAILED",
-                    "Unable to upload application document",
-                    exception);
-        }
+    @Override
+    public String upload(MultipartFile file, String folder, UUID ownerId) {
+        throw disabled();
     }
 
     /**
-     * Lists documents attached to an application.
+     * Generated uploads are unavailable while S3 storage is disabled.
      *
-     * @param principal authenticated principal
-     * @param applicationId application identifier
-     * @return document responses
+     * @param content file bytes
+     * @param fileName logical file name
+     * @param contentType content type
+     * @param folder destination folder
+     * @param ownerId owner identifier
+     * @return never returns
      */
-    @Transactional(readOnly = true)
-    public List<ApplicationDocumentResponse> listDocuments(
-            JwtPrincipal principal,
-            UUID applicationId) {
-        requireApplicationAccess(principal, applicationId);
-
-        return documentRepository
-                .findByPolicyApplicationIdOrderByIdDesc(applicationId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
+    @Override
+    public String uploadGenerated(
+            byte[] content,
+            String fileName,
+            String contentType,
+            String folder,
+            UUID ownerId) {
+        throw disabled();
     }
 
     /**
-     * Deletes a document from an application.
+     * Presigned URLs are unavailable while S3 storage is disabled.
      *
-     * @param principal authenticated principal
-     * @param applicationId application identifier
-     * @param documentId document identifier
+     * @param s3Key object key
+     * @return never returns
      */
-    public void deleteDocument(
-            JwtPrincipal principal,
-            UUID applicationId,
-            UUID documentId) {
-        try {
-            requireApplicationAccess(principal, applicationId);
-
-            ApplicationDocument document =
-                    documentRepository.findById(documentId)
-                            .filter(item -> item
-                                    .getPolicyApplication()
-                                    .getId()
-                                    .equals(applicationId))
-                            .orElseThrow(() ->
-                                    new ApplicationDocumentNotFoundException(
-                                            documentId));
-
-            storageService.delete(document.getS3Key());
-            documentRepository.delete(document);
-        } catch (ApplicationNotFoundException
-                 | ApplicationDocumentNotFoundException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            throw new InfrastructureException(
-                    "APPLICATION_DOCUMENT_DELETE_FAILED",
-                    "Unable to delete application document",
-                    exception);
-        }
+    @Override
+    public S3PresignedUrl getPresignedDownloadUrl(String s3Key) {
+        throw disabled();
     }
 
     /**
-     * Checks that the principal can access the target application.
+     * No-op delete when S3 storage is disabled.
      *
-     * @param principal authenticated principal
-     * @param applicationId application identifier
-     * @return application entity
+     * @param s3Key object key
      */
-    private PolicyApplication requireApplicationAccess(
-            JwtPrincipal principal,
-            UUID applicationId) {
-
-        PolicyApplication application =
-                applicationService.getApplicationEntityForInternalUse(
-                        applicationId);
-
-        if (principal.role() == JwtRole.CUSTOMER
-                && !application.isOwnedBy(principal.userId())) {
-            throw new ApplicationNotFoundException(applicationId);
-        }
-
-        return application;
-    }
-
-    /**
-     * Maps a document entity to its response payload.
-     *
-     * @param document document entity
-     * @return document response
-     */
-    private ApplicationDocumentResponse toResponse(
-            ApplicationDocument document) {
-
-        PresignedUrlResponse download =
-                storageService.getPresignedDownloadUrl(
-                        document.getS3Key());
-
-        return new ApplicationDocumentResponse(
-                document.getId(),
-                document.getPolicyApplication().getId(),
-                document.getFileName(),
-                document.getContentType(),
-                download,
-                document.getUploadedBy());
+    @Override
+    public void delete(String s3Key) {
+        // S3 is disabled; there is no remote object to delete.
     }
 }
-package com.insurewise.policy.service;
+package com.insurewise.framework.s3.service;
 
-import com.insurewise.policy.dto.request.CategoryCreateRequest;
-import com.insurewise.policy.dto.request.CategoryUpdateRequest;
-import com.insurewise.policy.dto.response.CategoryResponse;
-import com.insurewise.policy.entity.Category;
-import com.insurewise.common.exception.InfrastructureException;
-import com.insurewise.policy.repository.CategoryRepository;
-import java.util.List;
 import java.util.UUID;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import com.insurewise.policy.exception.CategoryNotFoundException;
+import org.springframework.web.multipart.MultipartFile;
 
-@Service
-@Transactional
-public class CategoryService {
-    private final CategoryRepository repository;
+public interface S3FileService {
+    /**
+     * Uploads a file to the given folder.
+     *
+     * @param file file content
+     * @param folder destination folder
+     * @param ownerId owner identifier
+     * @return stored object key
+     */
+    String upload(MultipartFile file, String folder, UUID ownerId);
 
     /**
-     * Creates the category service.
+     * Uploads generated content as a file.
      *
-     * @param repository category persistence access
+     * @param content file bytes
+     * @param fileName logical file name
+     * @param contentType content type
+     * @param folder destination folder
+     * @param ownerId owner identifier
+     * @return stored object key
      */
-    public CategoryService(CategoryRepository repository) {
-        this.repository = repository;
-    }
+    String uploadGenerated(
+            byte[] content,
+            String fileName,
+            String contentType,
+            String folder,
+            UUID ownerId);
 
     /**
-     * Creates a category.
+     * Creates a presigned download URL for the given object key.
      *
-     * @param request category creation payload
-     * @return created category response
+     * @param s3Key object key
+     * @return presigned URL details
      */
-    public CategoryResponse create(CategoryCreateRequest request) {
-        Category category = repository.save(new Category(
-                request.name(),
-                request.description(),
-                request.status()));
-
-        return toResponse(category);
-    }
+    S3PresignedUrl getPresignedDownloadUrl(String s3Key);
 
     /**
-     * Lists all categories.
+     * Deletes an object when the key is present.
      *
-     * @return category responses
+     * @param s3Key object key
      */
-    @Transactional(readOnly = true)
-    public List<CategoryResponse> list() {
-        return repository.findAll()
-                .stream()
-                .map(this::toResponse)
-                .toList();
-    }
-
-    /**
-     * Updates a category.
-     *
-     * @param id category identifier
-     * @param request category update payload
-     * @return updated category response
-     */
-    public CategoryResponse update(
-            UUID id,
-            CategoryUpdateRequest request) {
-        try {
-            Category category = find(id);
-
-            category.update(
-                    request.name(),
-                    request.description(),
-                    request.status());
-
-            return toResponse(category);
-        } catch (CategoryNotFoundException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            throw new InfrastructureException(
-                    "CATEGORY_UPDATE_FAILED",
-                    "Unable to update category",
-                    exception);
-        }
-    }
-
-    /**
-     * Deletes a category by identifier.
-     *
-     * @param id category identifier
-     */
-    public void delete(UUID id) {
-        try {
-            repository.delete(find(id));
-        } catch (CategoryNotFoundException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            throw new InfrastructureException(
-                    "CATEGORY_DELETE_FAILED",
-                    "Unable to delete category",
-                    exception);
-        }
-    }
-
-    /**
-     * Finds a category entity by identifier.
-     *
-     * @param id category identifier
-     * @return category entity
-     */
-    public Category find(UUID id) {
-        return repository.findById(id)
-                .orElseThrow(() -> new CategoryNotFoundException(id));
-    }
-
-    private CategoryResponse toResponse(Category category) {
-        return new CategoryResponse(
-                category.getId(),
-                category.getName(),
-                category.getDescription(),
-                category.getStatus());
-    }
+    void delete(String s3Key);
 }
-package com.insurewise.policy.service;
+package com.insurewise.framework.s3.service;
 
-import com.insurewise.auth.repository.CustomerRepository;
-import com.insurewise.auth.repository.StaffUserRepository;
-import com.insurewise.common.exception.InfrastructureException;
-import com.insurewise.policy.dto.response.DashboardMetricsResponse;
-import com.insurewise.policy.entity.ApplicationStatus;
-import com.insurewise.policy.entity.PolicyStatus;
-import com.insurewise.policy.repository.CategoryRepository;
-import com.insurewise.policy.repository.PolicyApplicationRepository;
-import com.insurewise.policy.repository.PolicyRepository;
-import jakarta.persistence.EntityManager;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import java.time.Instant;
 
-@Service
-@Transactional(readOnly = true)
-public class DashboardService {
-    private final CustomerRepository customerRepository;
-    private final StaffUserRepository staffUserRepository;
-    private final CategoryRepository categoryRepository;
-    private final PolicyRepository policyRepository;
-    private final PolicyApplicationRepository applicationRepository;
-    private final EntityManager entityManager;
-
-    /**
-     * Creates the dashboard service.
-     *
-     * @param customerRepository customer persistence access
-     * @param staffUserRepository staff user persistence access
-     * @param categoryRepository category persistence access
-     * @param policyRepository policy persistence access
-     * @param applicationRepository application persistence access
-     * @param entityManager entity manager for ad hoc counts
-     */
-    public DashboardService(
-            CustomerRepository customerRepository,
-            StaffUserRepository staffUserRepository,
-            CategoryRepository categoryRepository,
-            PolicyRepository policyRepository,
-            PolicyApplicationRepository applicationRepository,
-            EntityManager entityManager) {
-        this.customerRepository = customerRepository;
-        this.staffUserRepository = staffUserRepository;
-        this.categoryRepository = categoryRepository;
-        this.policyRepository = policyRepository;
-        this.applicationRepository = applicationRepository;
-        this.entityManager = entityManager;
-    }
-
-    /**
-     * Loads the dashboard metrics snapshot.
-     *
-     * @return dashboard metrics
-     */
-    public DashboardMetricsResponse getMetrics() {
-        try {
-            return new DashboardMetricsResponse(
-                    customerRepository.count(),
-                    staffUserRepository.count(),
-                    categoryRepository.count(),
-                    policyRepository.count(),
-                    policyRepository.countByStatus(PolicyStatus.ACTIVE),
-                    applicationRepository.count(),
-                    applicationRepository.countByStatus(
-                            ApplicationStatus.PENDING),
-                    applicationRepository.countByStatus(
-                            ApplicationStatus.ACTIVE),
-                    countTable("claims"),
-                    countByStatus("claims", "PENDING"),
-                    countTable("payments"),
-                    countByStatus("payments", "SUCCESS"));
-        } catch (RuntimeException exception) {
-            throw new InfrastructureException(
-                    "DASHBOARD_METRICS_FAILED",
-                    "Unable to load dashboard metrics",
-                    exception);
-        }
-    }
-
-    /**
-     * Counts rows in a table using a native query.
-     *
-     * @param tableName table name
-     * @return row count
-     */
-    private long countTable(String tableName) {
-        Number result = (Number) entityManager
-                .createNativeQuery("select count(*) from " + tableName)
-                .getSingleResult();
-
-        return result.longValue();
-    }
-
-    /**
-     * Counts rows by status in a table using a native query.
-     *
-     * @param tableName table name
-     * @param status status value
-     * @return row count
-     */
-    private long countByStatus(String tableName, String status) {
-        Number result = (Number) entityManager
-                .createNativeQuery(
-                        "select count(*) from " + tableName
-                                + " where status = :status")
-                .setParameter("status", status)
-                .getSingleResult();
-
-        return result.longValue();
-    }
+public record S3PresignedUrl(String url, Instant expiresAt) {
 }
-package com.insurewise.policy.service;
-
-import com.insurewise.common.security.JwtPrincipal;
-import com.insurewise.common.exception.InfrastructureException;
-import com.insurewise.policy.dto.request.PolicyApplicationCreateRequest;
-import com.insurewise.policy.dto.response.*;
-import com.insurewise.policy.entity.*;
-import com.insurewise.policy.exception.*;
-import com.insurewise.policy.repository.PolicyApplicationRepository;
-import java.time.LocalDate;
-import java.time.Period;
-import java.util.List;
-import java.util.UUID;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-
-@Service
-@Transactional
-public class PolicyApplicationService {
-    private final PolicyApplicationRepository applicationRepository;
-    private final PolicyService policyService;
-
-    /**
-     * Creates the policy application service.
-     *
-     * @param applicationRepository application persistence access
-     * @param policyService policy lookup service
-     */
-    public PolicyApplicationService(
-            PolicyApplicationRepository applicationRepository,
-            PolicyService policyService) {
-        this.applicationRepository = applicationRepository;
-        this.policyService = policyService;
-    }
-
-    /**
-     * Creates a policy application for a customer.
-     *
-     * @param customerId customer identifier
-     * @param request application payload
-     * @return created application response
-     */
-    public PolicyApplicationResponse createApplication(
-            UUID customerId,
-            PolicyApplicationCreateRequest request) {
-        try {
-            Policy policy = policyService.find(request.policyId());
-
-            if (!policy.isActiveForCustomer()) {
-                throw new ApplicationStateException(
-                        "Applications can only be created for active policies");
-            }
-
-            boolean duplicate = applicationRepository
-                    .existsByCustomerIdAndPolicyIdAndStatus(
-                            customerId,
-                            request.policyId(),
-                            ApplicationStatus.PENDING);
-
-            if (duplicate) {
-                throw new DuplicatePendingApplicationException();
-            }
-
-            Long sequence = applicationRepository.nextApplicationCodeSequence();
-
-            PolicyApplication application = new PolicyApplication(
-                    "APP-" + sequence,
-                    customerId,
-                    policy,
-                    request.coverageType(),
-                    request.dateOfBirth(),
-                    request.address(),
-                    request.preferredStartDate(),
-                    request.nomineeName(),
-                    request.nomineeRelationship());
-
-            return toResponse(applicationRepository.save(application));
-        } catch (ApplicationStateException
-                 | DuplicatePendingApplicationException
-                 | PolicyNotFoundException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            throw new InfrastructureException(
-                    "APPLICATION_CREATE_FAILED",
-                    "Unable to create application",
-                    exception);
-        }
-    }
-
-    /**
-     * Lists applications visible to the current principal.
-     *
-     * @param principal authenticated principal
-     * @param status optional application status filter
-     * @return application responses
-     */
-    @Transactional(readOnly = true)
-    public List<PolicyApplicationResponse> listApplications(
-            JwtPrincipal principal,
-            ApplicationStatus status) {
-        List<PolicyApplication> applications;
-
-        if (principal.role().name().equals("STAFF")) {
-            applications = status == null
-                    ? applicationRepository.findAll()
-                    : applicationRepository.findByStatusOrderByIdDesc(
-                    status);
-        } else {
-            applications = status == null
-                    ? applicationRepository
-                    .findByCustomerIdOrderByIdDesc(
-                            principal.userId())
-                    : applicationRepository
-                    .findByCustomerIdAndStatusOrderByIdDesc(
-                            principal.userId(),
-                            status);
-        }
-
-        return applications.stream()
-                .map(this::toResponse)
-                .toList();
-    }
-
-    /**
-     * Loads an application visible to the current principal.
-     *
-     * @param principal authenticated principal
-     * @param applicationId application identifier
-     * @return application response
-     */
-    @Transactional(readOnly = true)
-    public PolicyApplicationResponse getApplication(
-            JwtPrincipal principal,
-            UUID applicationId) {
-        PolicyApplication application =
-                getApplicationEntity(applicationId);
-
-        if (principal.role().name().equals("CUSTOMER")
-                && !application.isOwnedBy(principal.userId())) {
-            throw new ApplicationNotFoundException(applicationId);
-        }
-
-        return toResponse(application);
-    }
-
-    /**
-     * Approves an application on behalf of staff.
-     *
-     * @param staffUserId staff user identifier
-     * @param applicationId application identifier
-     * @return approval response
-     */
-    public ApplicationDecisionResponse approveApplication(
-            UUID staffUserId,
-            UUID applicationId) {
-        try {
-            PolicyApplication application =
-                    getApplicationEntity(applicationId);
-
-            LocalDate startDate =
-                    application.getPreferredStartDate() == null
-                            ? LocalDate.now()
-                            : application.getPreferredStartDate();
-
-            LocalDate endDate = calculateEndDate(
-                    startDate,
-                    application.getPolicy().getDurationLabel());
-
-            application.approve(staffUserId, startDate, endDate);
-
-            return toDecisionResponse(application);
-        } catch (ApplicationNotFoundException
-                 | ApplicationStateException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            throw new InfrastructureException(
-                    "APPLICATION_APPROVE_FAILED",
-                    "Unable to approve application",
-                    exception);
-        }
-    }
-
-    /**
-     * Rejects an application on behalf of staff.
-     *
-     * @param staffUserId staff user identifier
-     * @param applicationId application identifier
-     * @return rejection response
-     */
-    public ApplicationDecisionResponse rejectApplication(
-            UUID staffUserId,
-            UUID applicationId) {
-        try {
-            PolicyApplication application =
-                    getApplicationEntity(applicationId);
-
-            application.reject(staffUserId);
-
-            return toDecisionResponse(application);
-        } catch (ApplicationNotFoundException
-                 | ApplicationStateException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            throw new InfrastructureException(
-                    "APPLICATION_REJECT_FAILED",
-                    "Unable to reject application",
-                    exception);
-        }
-    }
-
-    /**
-     * Loads an application entity for internal service use.
-     *
-     * @param applicationId application identifier
-     * @return application entity
-     */
-    public PolicyApplication getApplicationEntityForInternalUse(
-            UUID applicationId) {
-        return getApplicationEntity(applicationId);
-    }
-
-    private PolicyApplication getApplicationEntity(UUID applicationId) {
-        return applicationRepository.findById(applicationId)
-                .orElseThrow(() ->
-                        new ApplicationNotFoundException(applicationId));
-    }
-
-    private LocalDate calculateEndDate(
-            LocalDate startDate,
-            String durationLabel) {
-
-        String digits = durationLabel.replaceAll("[^0-9]", "");
-
-        if (!digits.isBlank()) {
-            int years = Integer.parseInt(digits);
-            return startDate.plusYears(Math.max(years, 1));
-        }
-
-        return startDate.plusYears(1);
-    }
-
-    private PolicyApplicationResponse toResponse(
-            PolicyApplication application) {
-
-        return new PolicyApplicationResponse(
-                application.getId(),
-                application.getApplicationCode(),
-                application.getCustomerId(),
-                application.getPolicy().getId(),
-                application.getPolicy().getName(),
-                application.getCoverageType(),
-                application.getCoverageAmount(),
-                application.getPremiumAmount(),
-                application.getDateOfBirth(),
-                application.getAddress(),
-                application.getPreferredStartDate(),
-                application.getNomineeName(),
-                application.getNomineeRelationship(),
-                application.getStartDate(),
-                application.getEndDate(),
-                application.getStatus(),
-                application.getDecidedBy(),
-                application.getDecidedAt());
-    }
-
-    private ApplicationDecisionResponse toDecisionResponse(
-            PolicyApplication application) {
-
-        return new ApplicationDecisionResponse(
-                application.getId(),
-                application.getApplicationCode(),
-                application.getStatus(),
-                application.getStartDate(),
-                application.getEndDate(),
-                application.getDecidedBy());
-    }
-}
-package com.insurewise.policy.service;
-
-import com.insurewise.policy.dto.request.PolicyCreateRequest;
-import com.insurewise.policy.dto.request.PolicyUpdateRequest;
-import com.insurewise.policy.dto.response.PolicyResponse;
-import com.insurewise.policy.entity.Policy;
-import com.insurewise.policy.entity.PolicyStatus;
-import com.insurewise.common.exception.InfrastructureException;
-import com.insurewise.policy.repository.PolicyRepository;
-import java.util.List;
-import java.util.UUID;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import com.insurewise.policy.exception.PolicyNotFoundException;
-
-@Service
-@Transactional
-public class PolicyService {
-    private final PolicyRepository policyRepository;
-    private final CategoryService categoryService;
-
-    /**
-     * Creates the policy service.
-     *
-     * @param policyRepository policy persistence access
-     * @param categoryService category lookup service
-     */
-    public PolicyService(
-            PolicyRepository policyRepository,
-            CategoryService categoryService) {
-        this.policyRepository = policyRepository;
-        this.categoryService = categoryService;
-    }
-
-    /**
-     * Persists a new policy.
-     *
-     * @param request policy creation payload
-     * @return created policy response
-     */
-    public PolicyResponse create(PolicyCreateRequest request) {
-        try {
-            Policy policy = policyRepository.save(new Policy(
-                    request.name(),
-                    categoryService.find(request.categoryId()),
-                    request.coverageAmount(),
-                    request.premiumAmount(),
-                    request.durationLabel(),
-                    request.status()));
-            return toResponse(policy);
-        } catch (RuntimeException exception) {
-            throw new InfrastructureException(
-                    "POLICY_CREATE_FAILED",
-                    "Unable to create policy",
-                    exception);
-        }
-    }
-
-    /**
-     * Lists policies that are active and available to customers.
-     *
-     * @return active policy responses
-     */
-    @Transactional(readOnly = true)
-    public List<PolicyResponse> listActive() {
-        return policyRepository
-                .findAllByStatusOrderByIdDesc(PolicyStatus.ACTIVE)
-                .stream()
-                .filter(Policy::isActiveForCustomer)
-                .map(this::toResponse)
-                .toList();
-    }
-
-    /**
-     * Loads a policy response by identifier.
-     *
-     * @param id policy identifier
-     * @return policy response
-     */
-    @Transactional(readOnly = true)
-    public PolicyResponse get(UUID id) {
-        return toResponse(find(id));
-    }
-
-    /**
-     * Updates an existing policy.
-     *
-     * @param id policy identifier
-     * @param request policy update payload
-     * @return updated policy response
-     */
-    public PolicyResponse update(
-            UUID id,
-            PolicyUpdateRequest request) {
-        try {
-            Policy policy = find(id);
-
-            policy.update(
-                    request.name(),
-                    categoryService.find(request.categoryId()),
-                    request.coverageAmount(),
-                    request.premiumAmount(),
-                    request.durationLabel(),
-                    request.status());
-
-            return toResponse(policy);
-        } catch (PolicyNotFoundException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            throw new InfrastructureException(
-                    "POLICY_UPDATE_FAILED",
-                    "Unable to update policy",
-                    exception);
-        }
-    }
-
-    /**
-     * Deletes a policy by identifier.
-     *
-     * @param id policy identifier
-     */
-    public void delete(UUID id) {
-        try {
-            policyRepository.delete(find(id));
-        } catch (PolicyNotFoundException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            throw new InfrastructureException(
-                    "POLICY_DELETE_FAILED",
-                    "Unable to delete policy",
-                    exception);
-        }
-    }
-
-    /**
-     * Finds a policy entity by identifier.
-     *
-     * @param id policy identifier
-     * @return policy entity
-     */
-    public Policy find(UUID id) {
-        return policyRepository.findById(id)
-                .orElseThrow(() -> new PolicyNotFoundException(id));
-    }
-
-    private PolicyResponse toResponse(Policy policy) {
-        return new PolicyResponse(
-                policy.getId(),
-                policy.getName(),
-                policy.getCategory().getId(),
-                policy.getCategory().getName(),
-                policy.getCoverageAmount(),
-                policy.getPremiumAmount(),
-                policy.getDurationLabel(),
-                policy.getStatus());
-    }
-}
-package com.insurewise.common.exception;
-
-import com.insurewise.common.dto.ApiErrorResponse;
-import com.insurewise.common.dto.FieldErrorResponse;
-import com.insurewise.common.web.CorrelationIdFilter;
-import jakarta.servlet.http.HttpServletRequest;
-import java.time.OffsetDateTime;
-import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.TransactionSystemException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
-
-@RestControllerAdvice
-public class GlobalExceptionHandler {
-
-    private static final Logger LOGGER =
-            LoggerFactory.getLogger(GlobalExceptionHandler.class);
-
-    @ExceptionHandler(ResourceNotFoundException.class)
-    ResponseEntity<ApiErrorResponse> handleNotFound(
-            ResourceNotFoundException exception,
-            HttpServletRequest request) {
-
-        return build(
-                HttpStatus.NOT_FOUND,
-                exception.getErrorCode(),
-                exception.getMessage(),
-                request,
-                exception,
-                null);
-    }
-
-    @ExceptionHandler(ValidationException.class)
-    ResponseEntity<ApiErrorResponse> handleValidationException(
-            ValidationException exception,
-            HttpServletRequest request) {
-
-        return build(
-                HttpStatus.BAD_REQUEST,
-                exception.getErrorCode(),
-                exception.getMessage(),
-                request,
-                exception,
-                null);
-    }
-
-    @ExceptionHandler(BusinessException.class)
-    ResponseEntity<ApiErrorResponse> handleBusinessException(
-            BusinessException exception,
-            HttpServletRequest request) {
-
-        return build(
-                HttpStatus.CONFLICT,
-                exception.getErrorCode(),
-                exception.getMessage(),
-                request,
-                exception,
-                null);
-    }
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    ResponseEntity<ApiErrorResponse> handleMethodArgumentNotValid(
-            MethodArgumentNotValidException exception,
-            HttpServletRequest request) {
-
-        List<FieldErrorResponse> fieldErrors = exception.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .map(error -> new FieldErrorResponse(
-                        error.getField(),
-                        error.getDefaultMessage()))
-                .toList();
-
-        String message = fieldErrors.isEmpty()
-                ? "Request validation failed"
-                : "Request validation failed";
-
-        return build(
-                HttpStatus.BAD_REQUEST,
-                "VALIDATION_ERROR",
-                message,
-                request,
-                exception,
-                fieldErrors);
-    }
-
-    @ExceptionHandler(MaxUploadSizeExceededException.class)
-    ResponseEntity<ApiErrorResponse> handleMaxUploadSizeExceeded(
-            MaxUploadSizeExceededException exception,
-            HttpServletRequest request) {
-
-        return build(
-                HttpStatus.BAD_REQUEST,
-                "MAX_UPLOAD_SIZE_EXCEEDED",
-                "Uploaded file exceeds the maximum allowed size",
-                request,
-                exception,
-                null);
-    }
-
-    @ExceptionHandler({
-            DataIntegrityViolationException.class,
-            TransactionSystemException.class
-    })
-    ResponseEntity<ApiErrorResponse> handlePersistenceException(
-            Exception exception,
-            HttpServletRequest request) {
-
-        return build(
-                HttpStatus.CONFLICT,
-                "DATA_INTEGRITY_VIOLATION",
-                "The request could not be completed because it conflicts with existing data",
-                request,
-                exception,
-                null);
-    }
-
-    @ExceptionHandler(InfrastructureException.class)
-    ResponseEntity<ApiErrorResponse> handleInfrastructureException(
-            InfrastructureException exception,
-            HttpServletRequest request) {
-
-        return build(
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                exception.getErrorCode(),
-                exception.getMessage(),
-                request,
-                exception,
-                null);
-    }
-
-    @ExceptionHandler(Exception.class)
-    ResponseEntity<ApiErrorResponse> handleUnhandledException(
-            Exception exception,
-            HttpServletRequest request) {
-
-        return build(
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                "INTERNAL_SERVER_ERROR",
-                "An unexpected error occurred",
-                request,
-                exception,
-                null);
-    }
-
-    private ResponseEntity<ApiErrorResponse> build(
-            HttpStatus status,
-            String errorCode,
-            String message,
-            HttpServletRequest request,
-            Exception exception,
-            List<FieldErrorResponse> fieldErrors) {
-
-        String correlationId = resolveCorrelationId(request);
-        logException(status, errorCode, request, correlationId, exception);
-
-        return ResponseEntity.status(status).body(
-                new ApiErrorResponse(
-                        OffsetDateTime.now(),
-                        status.value(),
-                        errorCode,
-                        message,
-                        request.getRequestURI(),
-                        correlationId,
-                        fieldErrors));
-    }
-
-    private void logException(
-            HttpStatus status,
-            String errorCode,
-            HttpServletRequest request,
-            String correlationId,
-            Exception exception) {
-
-        Throwable rootCause = rootCauseOf(exception);
-        LOGGER.error(
-                "Request failed: status={}, errorCode={}, path={}, correlationId={}, exceptionType={}, rootCauseType={}, rootCauseMessage={}",
-                status.value(),
-                errorCode,
-                request.getRequestURI(),
-                correlationId,
-                exception.getClass().getName(),
-                rootCause.getClass().getName(),
-                rootCause.getMessage(),
-                exception);
-    }
-
-    private String resolveCorrelationId(HttpServletRequest request) {
-        Object correlationId =
-                request.getAttribute(CorrelationIdFilter.CORRELATION_ID_ATTRIBUTE);
-        return correlationId == null
-                ? "unavailable"
-                : correlationId.toString();
-    }
-
-    private Throwable rootCauseOf(Throwable throwable) {
-        Throwable current = throwable;
-        while (current.getCause() != null && current.getCause() != current) {
-            current = current.getCause();
-        }
-        return current;
-    }
-}
-explain the codes how the flows works and how method calls service layers and how exception catches the error which tables from db are used are multiple tables connected with outeachother from these explain all also mainly the functions and codes i gave in detail
-also explain how the annonations work all of it
-also explain the code by code separately
