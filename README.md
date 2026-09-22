@@ -1,1 +1,131 @@
-Before each, your method is closed. You can create a test and write one function in which you're going to compare mango and orange, and then I'll compare each property using assert equals or assert true. Okay? So this is how basic setup is done. JUnit 6 also came into picture. Yeah. So code dikha deta. Introduction to Tutorial Point, Geeks for Geeks. It's to Geeks for Geeks. Haan. Do not have to know about these two, enough. Okay? @Test or @BeforeEach is enough. Baaki sab are not required for you, no? These three, by the way. To check if an object is not null, to check if a condition is true, to check if two values are equal. That's all. Test suites are written with @Test. And then you don't have to read all this. Basically you need this dependency in your pom file. Okay? Not exactly this one. I don't think this one. Ek baar check kar lena bahar daal ke. You would need this kind of dependency for JUnit 5. Okay? And then this is the actual library that gives you all of these, and once you import this, and then you write @Test. I think here @JUnit5 karke likhna hoga, and then @Test, and then you create the objects, and then you do this, and then you do assertions.assertEquals, or you simply import the assertions still here, right? So you can do assertEquals also added here, and then just check assertEquals. Whatever you want, the expected to actual. Okay? Calculator mein you are performing add of these two. Expected is 5, actual is what? Whatever you want to check you can write like this. So this is how a test case is written. Okay? So simply put, a dependency added in the pom file, and then this library is where you will get the data from. These are the imports that you will have to add, and then @JUnit, @Test, and simply writing assertEquals or assertNotNull or assertTrue. This is what will help you. There are limitations, blah blah and blah blah, but you don't have to wonder about that. Geeks for Geeks mein to iska minimum tha. By the way, Tutorials Point, yeah, they've blocked it. So these were actually, what should I say, copyright issues were there, all of that would, you know, come into picture. At least you can open Geeks for Geeks for some piece of code. If you look at tutorial and poora likhne ki koshish ki to aaj poora din bit jayega. You can ask your AI. It will put up a JUnit test case for you. Write it in the test files, okay? And try it out. It will run on its own, by the way. Test cases are supposed to run on its own. It will have this play button on the side of the browser, which you can click and it will run. @Test means it should run on its own. That's what it is about. So the test data is inside, expectation is also written there. As soon as you run that test scenario, it should run on its own. Let me see if I can... do I do this. Oh, that is a book. My God. इतनी... इसी mein hoga? One second. They generally give that, this or Medium. Both of them give running code. Compiler. Program is... Itu class chalega, not JUnit. This won't run. It won't run. Need a full class setup. Calculator object bhi nahi jaanta hoga ye. This two won't work. Try it out sections are also not present here. Stack Overflow mein hota tha try it out section. What if somebody gave a stack? Oh, I'm five minutes late to the other call. By the way, you should know that there will be errors if you don't do it the right way, right? Bahut saare errors aayenge. Okay, I'll, if I find some in action, I can share it to you. Meanwhile, you just try putting up a small unit test case. If it's not working, let's, like, try it for an hour. If it's still not working for you, I would say don't spend your time on that. You have much better things to accomplish. Okay? Okay. Try for an hour. If it's not working for you, stop it, but...
+# InsureWise Angular UI Scaffold
+
+This repository is an Angular scaffold for the InsureWise UI. It intentionally renders only `InsureWise` from the root component so developers can implement the screens from a clean starting point.
+
+## Runtime
+
+```bash
+npm install
+npm run dev
+npm run build
+```
+
+The app is configured for deployment under `/insurance/`.
+
+## Environment
+
+```env
+NG_APP_BASE_HREF=/insurance/
+NG_APP_API_BASE_URL=/insurance/api
+```
+
+For local backend testing, set `NG_APP_API_BASE_URL` to the local API endpoint, for example:
+
+```env
+NG_APP_API_BASE_URL=http://localhost:1234/api
+```
+
+The current scaffold keeps env values documented in `.env` and `.env.example`. When implementation begins, add either Angular file replacements or a runtime config loader to consume those values.
+
+## Existing Minimal App Files
+
+```text
+src/app/app.component.ts    Blank root component that renders only InsureWise
+src/main.ts                 Angular bootstrap
+src/index.html              Host HTML with /insurance/ base href
+src/styles.css              Minimal blank-screen styling
+```
+
+Do not add screen behavior directly into the bootstrap files unless it belongs to global app setup.
+
+## Folder Structure To Implement
+
+```text
+src/
+  assets/
+  app/
+    components/
+      common/
+        badge/
+        button/
+        card/
+        document-viewer-modal/
+        input/
+        modal/
+        select/
+        spinner/
+        table/
+        toast/
+      composites/
+      data-display/
+        empty-state/
+        policy-card/
+        stat-tile/
+      domain/
+        category-filter/
+        documents-panel/
+        document-uploader/
+        payment-method-selector/
+      forms/
+        form-actions/
+        form-field/
+        form-row/
+      layout/
+    config/
+    core/
+      auth/
+      environment/
+      http/
+      rbac/
+    pages/
+      auth/
+      customer/
+        browse-policies/
+        claim-documents/
+        file-claim/
+        make-new-payment/
+        make-policy-payment/
+        my-claims-file-new/
+        my-claims/
+        my-payments/
+        my-policies/
+        policy-details/
+        policy-documents/
+      shared/
+        payment-documents/
+      staff/
+        approve-policies-list/
+        approve-policies-review/
+        categories-list/
+        categories-new/
+        dashboard/
+        manage-users-list/
+        manage-users-new/
+        policies-list/
+        policies-new/
+        process-claims-list/
+        process-claims-review/
+        view-payments/
+    routing/
+    services/
+      api/
+    types/
+    utils/
+```
+
+## Implementation Guidance
+
+Implement standalone reusable UI components first under `components/common`, then composed form/display components, then domain components. Keep API services under `services/api` or `core/http`, auth state and guards under `core/auth`, RBAC helpers under `core/rbac`, and route definitions under `routing`.
+
+Each screen should be implemented in its matching folder under `pages`. Keep customer, staff, and shared screens separate so teams can work in parallel without stepping on each other.
+
+Recommended first implementation order:
+
+1. Auth shell: login, signup, token persistence, route guards.
+2. Layout shell: customer top navigation and staff navigation.
+3. Catalog flow: browse policies, policy details, application form.
+4. Documents flow: reusable uploader, viewer, policy/claim/payment document screens.
+5. Payments and claims flows.
+6. Staff administration screens.
+
+Keep the deployment contract intact: production builds should continue to use `/insurance/` as both `base-href` and `deploy-url`.
