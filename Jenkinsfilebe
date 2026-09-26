@@ -1,0 +1,178 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME       = 'insurewise'
+        APP_DIR        = '/opt/insurewise'
+        JAR_NAME       = 'insurewise.jar'
+        SERVICE_NAME   = 'insurewise'
+    }
+
+    stages {
+
+
+        // stage('Build') {
+        //     steps {
+        //         dir('backend/backend/insurewise-service') {
+        //             echo 'Building Insurance BE'
+
+        //             sh '''
+        //                 chmod +x mvnw 2>/dev/null || true
+
+        //                 if [ -f ./mvnw ]; then
+        //                     ./mvnw clean package -DskipTests
+        //                 else
+        //                    mvn -f backend/backend/s3-framework/pom.xml install
+        //                    mvn -f backend/backend/insurewise-service/pom.xml package
+        //                    sudo mvn clean package -DskipTests
+
+        //                 fi
+        //             '''
+        //         }
+        //     }
+        // }
+        
+        stage('Build S3 Framework') {
+            steps {
+                echo 'Building and installing Insurewise S3 framework'
+                sh '''
+                    mvn \
+                        -f backend/backend/s3-framework/pom.xml \
+                        clean install \
+                        -DskipTests
+                '''
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo 'Building Insurance BE'
+                sh '''
+                    mvn \
+                        -f backend/backend/insurewise-service/pom.xml \
+                        clean package \
+                        -DskipTests
+                '''
+            }
+        }
+
+        stage('Prepare Deployment') {
+          when { anyOf { branch 'dev'; branch 'main' } }
+            steps {
+                sh '''
+                    sudo mkdir -p ${APP_DIR}
+                '''
+            }
+        }
+
+        stage('Deploy JAR') {
+          when { anyOf { branch 'dev'; branch 'main' } }
+            steps {
+                dir('backend/backend/insurewise-service') {
+                    sh '''
+                        JAR_FILE=$(find target -maxdepth 1 -type f \
+                            -name "*.jar" \
+                            ! -name "original-*.jar" \
+                            ! -name "*-sources.jar" \
+                            ! -name "*-javadoc.jar" \
+                            | head -1)
+
+                        if [ -z "$JAR_FILE" ]; then
+                            echo "ERROR: No application JAR found"
+                            exit 1
+                        fi
+
+                        echo "Deploying: $JAR_FILE"
+
+                        sudo cp "$JAR_FILE" "${APP_DIR}/${JAR_NAME}"
+
+                        sudo chown root:root "${APP_DIR}/${JAR_NAME}"
+                        sudo chmod 755 "${APP_DIR}/${JAR_NAME}"
+                    '''
+                }
+            }
+        }
+
+        stage('Configure systemd') {
+          when { anyOf { branch 'dev'; branch 'main' } }
+            steps {
+                sh '''
+                    if [ ! -f /opt/insurewise/.env ]; then
+                        echo "ERROR: /opt/insurewise/.env does not exist"
+                        echo "Create the environment file before deployment."
+                        exit 1
+                    fi
+
+                    sudo tee /etc/systemd/system/${SERVICE_NAME}.service > /dev/null <<EOF
+[Unit]
+Description=Insurance Wise Backend
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/opt/insurewise/.env
+WorkingDirectory=/opt/insurewise
+ExecStart=/usr/bin/java -jar /opt/insurewise/insurewise.jar
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+                    sudo systemctl daemon-reload
+                    sudo systemctl enable ${SERVICE_NAME}
+                '''
+            }
+        }
+
+        stage('Restart Application') {
+           when { anyOf { branch 'dev'; branch 'main' } }
+            steps {
+                sh '''
+                    sudo systemctl restart ${SERVICE_NAME}
+
+                    sleep 5
+
+                    sudo systemctl is-active --quiet ${SERVICE_NAME}
+
+                    if [ $? -ne 0 ]; then
+                        echo "ERROR: Insurance BE failed to start"
+                        sudo systemctl status ${SERVICE_NAME} --no-pager
+                        sudo journalctl -u ${SERVICE_NAME} -n 100 --no-pager
+                        exit 1
+                    fi
+
+                    echo "Insurance BE started successfully"
+                '''
+            }
+        }
+
+        // stage('Verify Port') {
+        //   when { anyOf { branch 'dev'; branch 'main' } }
+        //     steps {
+        //         sh '''
+        //             echo "Checking Insurance BE port 1234..."
+
+        //             if sudo ss -lntp | grep -q ':1234'; then
+        //                 echo "Insurance BE is listening on port 1234"
+        //             else
+        //                 echo "ERROR: Nothing is listening on port 1234"
+        //                 sudo journalctl -u ${SERVICE_NAME} -n 100 --no-pager
+        //                 exit 1
+        //             fi
+        //         '''
+        //     }
+        // }
+    }
+
+    post {
+        success {
+            echo 'Insurance BE deployment completed successfully.'
+        }
+
+        failure {
+            echo 'Insurance BE deployment failed. Check the Jenkins console output.'
+        }
+    }
+}
